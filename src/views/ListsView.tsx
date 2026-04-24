@@ -25,10 +25,16 @@ import {
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
+import {
+  DEFAULT_LIST_COLOR,
+  LIST_PALETTE,
+  normalizeListColor,
+} from '../listColors'
 
 type ListRow = Database['public']['Tables']['lists']['Row']
 type SortKey = 'recent' | 'oldest' | 'az'
@@ -42,8 +48,12 @@ export default function ListsView() {
     id: number
     el: HTMLElement
   } | null>(null)
-  const [newOpen, setNewOpen] = useState(false)
+
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
+  const [colorHex, setColorHex] = useState<string>(DEFAULT_LIST_COLOR)
 
   const load = async () => {
     if (!supabase) return
@@ -73,13 +83,42 @@ export default function ListsView() {
     return sorted
   }, [lists, search, sort])
 
-  const create = async (e: FormEvent) => {
+  const openCreateEditor = () => {
+    setEditorMode('create')
+    setEditingId(null)
+    setTitle('')
+    setColorHex(DEFAULT_LIST_COLOR)
+    setEditorOpen(true)
+  }
+
+  const openEditEditor = (list: ListRow) => {
+    setMenuFor(null)
+    setEditorMode('edit')
+    setEditingId(list.id)
+    setTitle(list.title)
+    setColorHex(normalizeListColor(list.color))
+    setEditorOpen(true)
+  }
+
+  const closeEditor = () => {
+    setEditorOpen(false)
+    setEditingId(null)
+  }
+
+  const saveList = async (e: FormEvent) => {
     e.preventDefault()
     if (!supabase) return
-    const next = title.trim() || 'Untitled list'
-    await supabase.from('lists').insert({ title: next })
-    setTitle('')
-    setNewOpen(false)
+    const nextTitle = title.trim() || 'Untitled list'
+    const hex = normalizeListColor(colorHex)
+    if (editorMode === 'create') {
+      await supabase.from('lists').insert({ title: nextTitle, color: hex })
+    } else if (editingId != null) {
+      await supabase
+        .from('lists')
+        .update({ title: nextTitle, color: hex })
+        .eq('id', editingId)
+    }
+    closeEditor()
     void load()
   }
 
@@ -100,12 +139,14 @@ export default function ListsView() {
           placeholder="Search lists"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchRoundedIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
           }}
           sx={{ mb: 2 }}
         />
@@ -143,7 +184,14 @@ export default function ListsView() {
         ) : (
           <Stack spacing={1.5}>
             {visibleLists.map((list) => (
-              <Card key={list.id} sx={{ position: 'relative' }}>
+              <Card
+                key={list.id}
+                sx={{
+                  position: 'relative',
+                  borderLeft: '6px solid',
+                  borderLeftColor: normalizeListColor(list.color),
+                }}
+              >
                 <CardActionArea
                   component={RouterLink}
                   to={`/lists/${list.id}`}
@@ -182,6 +230,17 @@ export default function ListsView() {
         onClose={() => setMenuFor(null)}
       >
         <MenuItem
+          onClick={() => {
+            const row = lists.find((l) => l.id === menuFor?.id)
+            if (row) openEditEditor(row)
+          }}
+        >
+          <ListItemIcon>
+            <EditRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit list</ListItemText>
+        </MenuItem>
+        <MenuItem
           onClick={() => menuFor && void remove(menuFor.id)}
           sx={{ color: 'error.main' }}
         >
@@ -197,7 +256,7 @@ export default function ListsView() {
         color="primary"
         size="large"
         startIcon={<AddRoundedIcon />}
-        onClick={() => setNewOpen(true)}
+        onClick={openCreateEditor}
         aria-label="New list"
         sx={{
           position: 'fixed',
@@ -214,27 +273,77 @@ export default function ListsView() {
       </Button>
 
       <Dialog
-        open={newOpen}
-        onClose={() => setNewOpen(false)}
+        open={editorOpen}
+        onClose={closeEditor}
         fullWidth
         maxWidth="xs"
       >
-        <form onSubmit={create}>
-          <DialogTitle>New list</DialogTitle>
+        <form onSubmit={saveList}>
+          <DialogTitle>
+            {editorMode === 'create' ? 'New list' : 'Edit list'}
+          </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
               fullWidth
               margin="dense"
+              label="List name"
               placeholder="List name"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              sx={{ mb: 2 }}
             />
+            <Typography variant="overline" color="text.secondary">
+              Color
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                gap: 1,
+                mt: 0.5,
+              }}
+            >
+              {LIST_PALETTE.map((hex) => {
+                const selected = colorHex === hex
+                return (
+                  <Box
+                    key={hex}
+                    component="button"
+                    type="button"
+                    title={hex}
+                    aria-label={`Color ${hex}`}
+                    aria-pressed={selected}
+                    onClick={() => setColorHex(hex)}
+                    sx={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      minHeight: 0,
+                      border: 0,
+                      borderRadius: 1,
+                      bgcolor: hex,
+                      cursor: 'pointer',
+                      boxSizing: 'border-box',
+                      outline: selected ? '3px solid' : '2px solid transparent',
+                      outlineColor: selected ? 'primary.main' : 'transparent',
+                      outlineOffset: 1,
+                      boxShadow: selected ? 2 : 0,
+                      p: 0,
+                      '&:focus-visible': {
+                        outline: '2px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: 2,
+                      },
+                    }}
+                  />
+                )
+              })}
+            </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setNewOpen(false)}>Cancel</Button>
+            <Button onClick={closeEditor}>Cancel</Button>
             <Button type="submit" variant="contained" color="primary">
-              Create
+              {editorMode === 'create' ? 'Create' : 'Save'}
             </Button>
           </DialogActions>
         </form>

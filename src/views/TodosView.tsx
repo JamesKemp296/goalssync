@@ -26,6 +26,7 @@ import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
 import RemoveDoneRoundedIcon from '@mui/icons-material/RemoveDoneRounded'
 import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
+import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 
@@ -164,6 +165,12 @@ export default function TodosView() {
   return (
     <>
       <AppHeader title={list.title} backTo="/lists" menuItems={menuItems} />
+      <Box
+        sx={{
+          height: 4,
+          bgcolor: normalizeListColor(list.color),
+        }}
+      />
       <Container maxWidth="sm" sx={{ pt: 2 }}>
         <Stack spacing={2}>
           <Paper sx={{ p: 2 }}>

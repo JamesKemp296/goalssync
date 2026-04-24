@@ -19,6 +19,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import AppHeader from '../components/AppHeader'
+import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 
@@ -112,8 +113,35 @@ export default function HomeView() {
             </Button>
           </Paper>
         ) : (
-          <Stack>
-            <Paper sx={{ p: 2 }}>
+          <Stack spacing={1.5}>
+            <Paper
+              sx={{
+                p: 2,
+                borderLeft: '6px solid',
+                borderLeftColor: normalizeListColor(list.color),
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  mb: 1.5,
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }} noWrap>
+                  {list.title}
+                </Typography>
+                <Button
+                  component={RouterLink}
+                  to={`/lists/${list.id}`}
+                  size="small"
+                  endIcon={<OpenInNewRoundedIcon fontSize="small" />}
+                >
+                  Open
+                </Button>
+              </Box>
               <form onSubmit={add}>
                 <Stack direction="row" spacing={1}>
                   <TextField
