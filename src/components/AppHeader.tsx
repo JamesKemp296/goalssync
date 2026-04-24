@@ -1,0 +1,100 @@
+import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Box,
+} from '@mui/material'
+import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+
+export type AppHeaderMenuItem = {
+  label: string
+  icon?: ReactNode
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+}
+
+type AppHeaderProps = {
+  title: string
+  backTo?: string
+  menuItems?: AppHeaderMenuItem[]
+}
+
+const SIDE_SLOT = 40
+
+export default function AppHeader({ title, backTo, menuItems }: AppHeaderProps) {
+  const navigate = useNavigate()
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const menuOpen = Boolean(anchorEl)
+
+  const handleBack = () => {
+    if (backTo) navigate(backTo)
+    else navigate(-1)
+  }
+
+  const openMenu = (e: MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
+  const closeMenu = () => setAnchorEl(null)
+
+  const hasMenu = Boolean(menuItems && menuItems.length > 0)
+
+  return (
+    <AppBar position="sticky" color="transparent" elevation={0}>
+      <Toolbar sx={{ gap: 1 }}>
+        {backTo !== undefined ? (
+          <IconButton edge="start" onClick={handleBack} aria-label="Back">
+            <ArrowBackIosNewRoundedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Box sx={{ width: SIDE_SLOT }} />
+        )}
+
+        <Typography
+          variant="h6"
+          component="h1"
+          noWrap
+          sx={{ flex: 1, textAlign: 'center', fontWeight: 900 }}
+        >
+          {title}
+        </Typography>
+
+        {hasMenu ? (
+          <>
+            <IconButton edge="end" onClick={openMenu} aria-label="More options">
+              <MoreVertRoundedIcon />
+            </IconButton>
+            <Menu anchorEl={anchorEl} open={menuOpen} onClose={closeMenu}>
+              {menuItems!.map((item) => (
+                <MenuItem
+                  key={item.label}
+                  disabled={item.disabled}
+                  onClick={() => {
+                    closeMenu()
+                    item.onClick()
+                  }}
+                  sx={item.danger ? { color: 'error.main' } : undefined}
+                >
+                  {item.icon ? (
+                    <ListItemIcon sx={item.danger ? { color: 'error.main' } : undefined}>
+                      {item.icon}
+                    </ListItemIcon>
+                  ) : null}
+                  <ListItemText>{item.label}</ListItemText>
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        ) : (
+          <Box sx={{ width: SIDE_SLOT }} />
+        )}
+      </Toolbar>
+    </AppBar>
+  )
+}

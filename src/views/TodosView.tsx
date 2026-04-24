@@ -1,24 +1,38 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
-import type { Session } from '@supabase/supabase-js'
 import {
-  AppBar, Toolbar, Typography, Button, Container, Stack, TextField,
-  List, ListItem, ListItemText, Checkbox, IconButton, Paper, Box, CircularProgress
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  Box,
+  Button,
+  Checkbox,
+  CircularProgress,
+  Container,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material'
-import DeleteIcon from '@mui/icons-material/Delete'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
+import RemoveDoneRoundedIcon from '@mui/icons-material/RemoveDoneRounded'
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded'
+import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
 
-type TodosViewProps = {
-  session: Session
-}
-
-export default function TodosView({ session }: TodosViewProps) {
+export default function TodosView() {
   const { listId: listIdParam } = useParams<{ listId: string }>()
   const navigate = useNavigate()
   const listId = listIdParam ? Number(listIdParam) : NaN
@@ -40,7 +54,7 @@ export default function TodosView({ session }: TodosViewProps) {
 
   useEffect(() => {
     if (!Number.isFinite(listId)) {
-      navigate('/', { replace: true })
+      navigate('/lists', { replace: true })
       return
     }
     let cancelled = false
@@ -48,11 +62,15 @@ export default function TodosView({ session }: TodosViewProps) {
     setList(null)
     void (async () => {
       if (!supabase) return
-      const { data: listRow, error } = await supabase.from('lists').select('*').eq('id', listId).maybeSingle()
+      const { data: listRow, error } = await supabase
+        .from('lists')
+        .select('*')
+        .eq('id', listId)
+        .maybeSingle()
       if (cancelled) return
       if (error || !listRow) {
         setLoading(false)
-        navigate('/', { replace: true })
+        navigate('/lists', { replace: true })
         return
       }
       setList(listRow as ListRow)
@@ -80,7 +98,10 @@ export default function TodosView({ session }: TodosViewProps) {
 
   const toggle = async (t: TodoRow) => {
     if (!supabase) return
-    await supabase.from('todos').update({ is_complete: !t.is_complete }).eq('id', t.id)
+    await supabase
+      .from('todos')
+      .update({ is_complete: !t.is_complete })
+      .eq('id', t.id)
     void loadTodos()
   }
 
@@ -99,79 +120,113 @@ export default function TodosView({ session }: TodosViewProps) {
   const deleteList = async () => {
     if (!supabase || !Number.isFinite(listId)) return
     await supabase.from('lists').delete().eq('id', listId)
-    navigate('/', { replace: true })
+    navigate('/lists', { replace: true })
   }
 
-  if (!Number.isFinite(listId)) {
-    return null
-  }
+  const menuItems = useMemo<AppHeaderMenuItem[]>(
+    () => [
+      {
+        label: 'Mark all complete',
+        icon: <DoneAllRoundedIcon fontSize="small" />,
+        onClick: () => void markAll(true),
+        disabled: todos.length === 0,
+      },
+      {
+        label: 'Mark all incomplete',
+        icon: <RemoveDoneRoundedIcon fontSize="small" />,
+        onClick: () => void markAll(false),
+        disabled: todos.length === 0,
+      },
+      {
+        label: 'Delete list',
+        icon: <DeleteForeverRoundedIcon fontSize="small" />,
+        danger: true,
+        onClick: () => void deleteList(),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [todos.length, listId],
+  )
+
+  if (!Number.isFinite(listId)) return null
 
   if (loading || !list) {
     return (
-      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pt: 10 }}>
-        <CircularProgress />
-      </Box>
+      <>
+        <AppHeader title="Loading…" backTo="/lists" />
+        <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8 }}>
+          <CircularProgress />
+        </Box>
+      </>
     )
   }
 
   return (
     <>
-      <AppBar position="static" color="default" elevation={0}>
-        <Toolbar>
-          <IconButton component={RouterLink} to="/" edge="start" sx={{ mr: 1 }} aria-label="Back to lists">
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }} noWrap>{list.title}</Typography>
-          <Typography variant="body2" sx={{ mr: 2, display: { xs: 'none', sm: 'block' } }}>
-            {session.user.email}
-          </Typography>
-          <Button color="error" onClick={() => void deleteList()} sx={{ mr: 1 }}>Delete list</Button>
-          <Button onClick={() => void supabase?.auth.signOut()}>Sign out</Button>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="sm" sx={{ mt: 4, flex: 1 }}>
-        <Paper sx={{ p: 2 }}>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-            <Button size="small" variant="outlined" onClick={() => void markAll(true)}>Mark all complete</Button>
-            <Button size="small" variant="outlined" onClick={() => void markAll(false)}>Mark all incomplete</Button>
-          </Stack>
-          <form onSubmit={add}>
-            <Stack direction="row" spacing={1}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="New task"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-              <Button type="submit" variant="contained">Add</Button>
-            </Stack>
-          </form>
-          <List>
-            {todos.map((t) => (
-              <ListItem
-                key={t.id}
-                secondaryAction={
-                  <IconButton edge="end" aria-label="Delete task" onClick={() => void remove(t.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                }
-              >
-                <Checkbox
-                  checked={t.is_complete}
-                  onChange={() => void toggle(t)}
+      <AppHeader title={list.title} backTo="/lists" menuItems={menuItems} />
+      <Container maxWidth="sm" sx={{ pt: 2 }}>
+        <Stack spacing={2}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+              Add task
+            </Typography>
+            <form onSubmit={add}>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="What needs doing?"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
                 />
-                <ListItemText
-                  primary={t.task}
-                  sx={{ textDecoration: t.is_complete ? 'line-through' : 'none' }}
-                />
-              </ListItem>
-            ))}
-          </List>
-          {todos.length === 0 && (
-            <Box sx={{ py: 2, color: 'text.secondary', typography: 'body2' }}>No tasks yet.</Box>
-          )}
-        </Paper>
+                <Button type="submit" variant="contained" color="primary">
+                  Add
+                </Button>
+              </Stack>
+            </form>
+          </Paper>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Tasks
+            </Typography>
+            <List disablePadding>
+              {todos.map((t) => (
+                <ListItem
+                  key={t.id}
+                  disableGutters
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      aria-label="Delete task"
+                      onClick={() => void remove(t.id)}
+                    >
+                      <DeleteOutlineRoundedIcon />
+                    </IconButton>
+                  }
+                >
+                  <Checkbox
+                    edge="start"
+                    checked={t.is_complete}
+                    onChange={() => void toggle(t)}
+                  />
+                  <ListItemText
+                    primary={t.task}
+                    sx={{
+                      textDecoration: t.is_complete ? 'line-through' : 'none',
+                      color: t.is_complete ? 'text.secondary' : 'text.primary',
+                    }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+            {todos.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                No tasks yet.
+              </Typography>
+            ) : null}
+          </Paper>
+        </Stack>
       </Container>
     </>
   )

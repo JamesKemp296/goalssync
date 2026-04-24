@@ -1,11 +1,8 @@
-import type { ReactNode } from 'react'
 import { Box } from '@mui/material'
+import { Outlet } from 'react-router-dom'
+import AppBottomNav from './AppBottomNav'
 
-type ViewProps = {
-  children: ReactNode
-}
-
-export default function View({ children }: ViewProps) {
+export default function AppShell() {
   return (
     <Box
       sx={{
@@ -15,7 +12,10 @@ export default function View({ children }: ViewProps) {
         bgcolor: 'background.default',
       }}
     >
-      {children}
+      <Box sx={{ flex: 1, pb: 14 }}>
+        <Outlet />
+      </Box>
+      <AppBottomNav />
     </Box>
   )
 }

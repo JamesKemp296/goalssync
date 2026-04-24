@@ -27,7 +27,16 @@ export default function AuthView() {
   }
 
   return (
-    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+        bgcolor: 'background.default',
+      }}
+    >
       <Card sx={{ p: 3, width: 360 }}>
         <Typography variant="h5" sx={{ mb: 2 }}>Todo</Typography>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
