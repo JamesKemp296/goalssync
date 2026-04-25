@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
 import {
   Box,
   Button,
-  Card,
-  CardActionArea,
   Chip,
   CircularProgress,
   Container,
@@ -12,8 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  LinearProgress,
-  IconButton,
+  Grid,
   InputAdornment,
   ListItemIcon,
   ListItemText,
@@ -23,21 +19,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { alpha } from '@mui/material/styles'
-import {
-  TbDotsVertical,
-  TbEdit,
-  TbPlus,
-  TbSearch,
-  TbTrash,
-} from 'react-icons/tb'
+import { TbEdit, TbPlus, TbSearch, TbTrash } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
+import ListCard from '../components/ListCard'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import {
   DEFAULT_LIST_ICON,
   LIST_ICON_OPTIONS,
-  getListIconComponent,
   normalizeListIcon,
 } from '../listIcons'
 import {
@@ -200,7 +189,6 @@ export default function ListsView() {
         maxWidth="sm"
         sx={{
           pt: 1,
-          pb: 2,
           flex: 1,
           minHeight: 0,
           display: 'flex',
@@ -266,10 +254,9 @@ export default function ListsView() {
               </Typography>
             </Box>
           ) : (
-            <Stack spacing={1.5}>
+            <Grid container spacing={1.25}>
               {visibleLists.map((list) => {
                 const listColor = normalizeListColor(list.color)
-                const Icon = getListIconComponent(list.icon)
                 const stats = statsByListId[list.id] ?? {
                   total: 0,
                   completed: 0,
@@ -280,99 +267,22 @@ export default function ListsView() {
                     : Math.round((stats.completed / stats.total) * 100)
 
                 return (
-                  <Card
-                    key={list.id}
-                    sx={(theme) => ({
-                      position: 'relative',
-                      bgcolor:
-                        theme.palette.mode === 'dark'
-                          ? alpha(listColor, 0.26)
-                          : alpha(listColor, 0.2),
-                    })}
-                  >
-                    <CardActionArea
-                      component={RouterLink}
-                      to={`/lists/${list.id}`}
-                      sx={{ p: 2 }}
-                    >
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
-                      >
-                        <Box
-                          sx={(theme) => ({
-                            width: 36,
-                            height: 36,
-                            borderRadius: '50%',
-                            flexShrink: 0,
-                            display: 'grid',
-                            placeItems: 'center',
-                            bgcolor:
-                              theme.palette.mode === 'dark'
-                                ? alpha(listColor, 0.75)
-                                : alpha(listColor, 0.45),
-                            color: theme.palette.getContrastText(listColor),
-                            '& svg': { fontSize: 18 },
-                          })}
-                        >
-                          <Icon />
-                        </Box>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 700 }}
-                            noWrap
-                          >
-                            {list.title}
-                          </Typography>
-                          <Box
-                            sx={{
-                              mt: 0.75,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 1,
-                            }}
-                          >
-                            <LinearProgress
-                              variant="determinate"
-                              value={progress}
-                              sx={(theme) => ({
-                                flex: 1,
-                                height: 6,
-                                borderRadius: 999,
-                                bgcolor:
-                                  theme.palette.mode === 'dark'
-                                    ? alpha(listColor, 0.25)
-                                    : alpha(listColor, 0.3),
-                                '& .MuiLinearProgress-bar': {
-                                  bgcolor: listColor,
-                                  borderRadius: 999,
-                                },
-                              })}
-                            />
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {`${progress}%`}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </CardActionArea>
-                    <IconButton
-                      aria-label="List options"
-                      size="small"
-                      sx={{ position: 'absolute', top: 8, right: 8 }}
-                      onClick={(e) =>
-                        setMenuFor({ id: list.id, el: e.currentTarget })
-                      }
-                    >
-                      <TbDotsVertical size={18} />
-                    </IconButton>
-                  </Card>
+                  <Grid size={6} key={list.id}>
+                    <ListCard
+                      listId={list.id}
+                      title={list.title}
+                      listColor={listColor}
+                      progress={progress}
+                      total={stats.total}
+                      completed={stats.completed}
+                      iconKey={list.icon}
+                      showMenuButton
+                      onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
+                    />
+                  </Grid>
                 )
               })}
-            </Stack>
+            </Grid>
           )}
         </Box>
       </Container>
@@ -474,9 +384,7 @@ export default function ListsView() {
                       display: 'grid',
                       placeItems: 'center',
                       cursor: 'pointer',
-                      bgcolor: selected
-                        ? colorHex
-                        : 'action.hover',
+                      bgcolor: selected ? colorHex : 'action.hover',
                       boxSizing: 'border-box',
                       outline: selected ? '3px solid' : '2px solid transparent',
                       outlineColor: selected ? 'primary.main' : 'transparent',

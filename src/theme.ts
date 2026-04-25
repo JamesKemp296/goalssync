@@ -45,7 +45,7 @@ export const createAppTheme = (mode: PaletteMode) =>
     },
     typography: sharedTypography,
     shadows: createSoftShadows(mode),
-    spacing: 11,
+    spacing: 10,
     shape: {
       borderRadius: 6,
     },

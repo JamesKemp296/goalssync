@@ -6,23 +6,11 @@ import {
   type FormEvent,
 } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  Box,
-  Button,
-  Checkbox,
-  CircularProgress,
-  Container,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material'
-import { TbCheckupList, TbList, TbTrash, TbTrashX } from 'react-icons/tb'
+import { Box, CircularProgress, Container, Typography } from '@mui/material'
+import { TbCheckupList, TbList, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
+import TodoComposer from '../components/TodoComposer'
+import TodoItemsList from '../components/TodoItemsList'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
@@ -168,69 +156,24 @@ export default function TodosView() {
           bgcolor: normalizeListColor(list.color),
         }}
       />
-      <Container maxWidth="sm" sx={{ pt: 2 }}>
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-              Add task
-            </Typography>
-            <form onSubmit={add}>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="What needs doing?"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-                <Button type="submit" variant="contained" color="primary">
-                  Add
-                </Button>
-              </Stack>
-            </form>
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Tasks
-            </Typography>
-            <List disablePadding>
-              {todos.map((t) => (
-                <ListItem
-                  key={t.id}
-                  disableGutters
-                  secondaryAction={
-                    <IconButton
-                      edge="end"
-                      aria-label="Delete task"
-                      onClick={() => void remove(t.id)}
-                    >
-                      <TbTrash size={18} />
-                    </IconButton>
-                  }
-                >
-                  <Checkbox
-                    edge="start"
-                    checked={t.is_complete}
-                    onChange={() => void toggle(t)}
-                  />
-                  <ListItemText
-                    primary={t.task}
-                    sx={{
-                      textDecoration: t.is_complete ? 'line-through' : 'none',
-                      color: t.is_complete ? 'text.secondary' : 'text.primary',
-                    }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-            {todos.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                No tasks yet.
-              </Typography>
-            ) : null}
-          </Paper>
-        </Stack>
+      <Container maxWidth="sm" sx={{ pt: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2.5 }}>
+          {list.title}
+        </Typography>
+        <TodoComposer
+          value={text}
+          onChange={setText}
+          onSubmit={add}
+          placeholder="What needs doing?"
+        />
+        <TodoItemsList
+          todos={todos}
+          onToggle={(id) => {
+            const todo = todos.find((item) => item.id === id)
+            if (todo) void toggle(todo)
+          }}
+          onRemove={(id) => void remove(id)}
+        />
       </Container>
     </>
   )
