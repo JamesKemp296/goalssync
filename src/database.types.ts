@@ -16,6 +16,7 @@ export interface Database {
           title: string
           icon: string
           color: string
+          pinned_at: string | null
           created_at: string
         }
         Insert: {
@@ -24,6 +25,7 @@ export interface Database {
           title: string
           icon?: string
           color?: string
+          pinned_at?: string | null
           created_at?: string
         }
         Update: {
@@ -32,6 +34,7 @@ export interface Database {
           title?: string
           icon?: string
           color?: string
+          pinned_at?: string | null
           created_at?: string
         }
         Relationships: []

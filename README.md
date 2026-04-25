@@ -41,6 +41,7 @@ create table lists (
   title text not null,
   icon text not null default 'list',
   color text not null default '#92d0c8',
+  pinned_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -82,6 +83,9 @@ alter table lists
 
 alter table lists
   add column if not exists color text not null default '#92d0c8';
+
+alter table lists
+  add column if not exists pinned_at timestamptz;
 ```
 
 (`list` and `#92d0c8` match defaults in `src/listIcons.ts` / `src/listColors.ts`.)
@@ -97,6 +101,7 @@ create table lists (
   title text not null,
   icon text not null default 'list',
   color text not null default '#92d0c8',
+  pinned_at timestamptz,
   created_at timestamptz not null default now()
 );
 

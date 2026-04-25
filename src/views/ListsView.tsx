@@ -19,7 +19,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { TbEdit, TbPlus, TbSearch, TbTrash } from 'react-icons/tb'
+import { TbEdit, TbPin, TbPlus, TbSearch, TbTrash } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
 import ListCard from '../components/ListCard'
 import { supabase } from '../supabase'
@@ -38,6 +38,7 @@ import {
 type ListRow = Database['public']['Tables']['lists']['Row']
 type SortKey = 'recent' | 'oldest' | 'az'
 type ListStats = { total: number; completed: number }
+const MAX_PINNED_LISTS = 4
 
 export default function ListsView() {
   const [lists, setLists] = useState<ListRow[]>([])
@@ -107,10 +108,11 @@ export default function ListsView() {
   }, [])
 
   const visibleLists = useMemo(() => {
+    const unpinned = lists.filter((l) => !l.pinned_at)
     const needle = search.trim().toLowerCase()
     const filtered = needle
-      ? lists.filter((l) => l.title.toLowerCase().includes(needle))
-      : lists
+      ? unpinned.filter((l) => l.title.toLowerCase().includes(needle))
+      : unpinned
     const sorted = [...filtered]
     if (sort === 'recent') {
       sorted.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
@@ -121,6 +123,19 @@ export default function ListsView() {
     }
     return sorted
   }, [lists, search, sort])
+
+  const pinnedLists = useMemo(() => {
+    return [...lists]
+      .filter((l) => Boolean(l.pinned_at))
+      .sort(
+        (a, b) =>
+          +new Date(b.pinned_at ?? b.created_at) -
+          +new Date(a.pinned_at ?? a.created_at),
+      )
+      .slice(0, MAX_PINNED_LISTS)
+  }, [lists])
+
+  const canPinMore = pinnedLists.length < MAX_PINNED_LISTS
 
   const openCreateEditor = () => {
     setEditorMode('create')
@@ -172,6 +187,20 @@ export default function ListsView() {
     setMenuFor(null)
     void load()
   }
+
+  const togglePin = async (row: ListRow) => {
+    if (!supabase) return
+    const isPinned = Boolean(row.pinned_at)
+    if (!isPinned && !canPinMore) return
+    await supabase
+      .from('lists')
+      .update({ pinned_at: isPinned ? null : new Date().toISOString() })
+      .eq('id', row.id)
+    setMenuFor(null)
+    void load()
+  }
+
+  const menuForList = menuFor ? lists.find((l) => l.id === menuFor.id) : null
 
   return (
     <Box
@@ -245,44 +274,90 @@ export default function ListsView() {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
               <CircularProgress />
             </Box>
-          ) : visibleLists.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-              <Typography>
-                {lists.length === 0
-                  ? 'No lists yet. Tap + to create one.'
-                  : 'No lists match your search.'}
-              </Typography>
-            </Box>
           ) : (
-            <Grid container spacing={1.25}>
-              {visibleLists.map((list) => {
-                const listColor = normalizeListColor(list.color)
-                const stats = statsByListId[list.id] ?? {
-                  total: 0,
-                  completed: 0,
-                }
-                const progress =
-                  stats.total === 0
-                    ? 0
-                    : Math.round((stats.completed / stats.total) * 100)
+            <Stack spacing={2}>
+              {pinnedLists.length > 0 ? (
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                    Pinned
+                  </Typography>
+                  <Grid container spacing={1.25}>
+                    {pinnedLists.map((list) => {
+                      const listColor = normalizeListColor(list.color)
+                      const stats = statsByListId[list.id] ?? {
+                        total: 0,
+                        completed: 0,
+                      }
+                      const progress =
+                        stats.total === 0
+                          ? 0
+                          : Math.round((stats.completed / stats.total) * 100)
 
-                return (
-                  <Grid size={6} key={list.id}>
-                    <ListCard
-                      listId={list.id}
-                      title={list.title}
-                      listColor={listColor}
-                      progress={progress}
-                      total={stats.total}
-                      completed={stats.completed}
-                      iconKey={list.icon}
-                      showMenuButton
-                      onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
-                    />
+                      return (
+                        <Grid size={6} key={list.id}>
+                          <ListCard
+                            listId={list.id}
+                            title={list.title}
+                            listColor={listColor}
+                            progress={progress}
+                            total={stats.total}
+                            completed={stats.completed}
+                            iconKey={list.icon}
+                            showMenuButton
+                            onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
+                          />
+                        </Grid>
+                      )
+                    })}
                   </Grid>
-                )
-              })}
-            </Grid>
+                </Box>
+              ) : null}
+
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                  All Lists
+                </Typography>
+                {visibleLists.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                    <Typography>
+                      {lists.length === 0
+                        ? 'No lists yet. Tap + to create one.'
+                        : 'No lists match your search.'}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Grid container spacing={1.25}>
+                    {visibleLists.map((list) => {
+                      const listColor = normalizeListColor(list.color)
+                      const stats = statsByListId[list.id] ?? {
+                        total: 0,
+                        completed: 0,
+                      }
+                      const progress =
+                        stats.total === 0
+                          ? 0
+                          : Math.round((stats.completed / stats.total) * 100)
+
+                      return (
+                        <Grid size={6} key={list.id}>
+                          <ListCard
+                            listId={list.id}
+                            title={list.title}
+                            listColor={listColor}
+                            progress={progress}
+                            total={stats.total}
+                            completed={stats.completed}
+                            iconKey={list.icon}
+                            showMenuButton
+                            onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
+                          />
+                        </Grid>
+                      )
+                    })}
+                  </Grid>
+                )}
+              </Box>
+            </Stack>
           )}
         </Box>
       </Container>
@@ -292,16 +367,22 @@ export default function ListsView() {
         open={Boolean(menuFor)}
         onClose={() => setMenuFor(null)}
       >
-        <MenuItem
-          onClick={() => {
-            const row = lists.find((l) => l.id === menuFor?.id)
-            if (row) openEditEditor(row)
-          }}
-        >
+        <MenuItem onClick={() => menuForList && openEditEditor(menuForList)}>
           <ListItemIcon>
             <TbEdit size={18} />
           </ListItemIcon>
           <ListItemText>Edit list</ListItemText>
+        </MenuItem>
+        <MenuItem
+          disabled={!menuForList?.pinned_at && !canPinMore}
+          onClick={() => menuForList && void togglePin(menuForList)}
+        >
+          <ListItemIcon>
+            <TbPin size={18} />
+          </ListItemIcon>
+          <ListItemText>
+            {menuForList?.pinned_at ? 'Unpin list' : 'Pin list'}
+          </ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => menuFor && void remove(menuFor.id)}

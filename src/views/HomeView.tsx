@@ -70,7 +70,8 @@ const getHeroState = (progress: number): HeroCopy => {
 }
 
 export default function HomeView() {
-  const [recentLists, setRecentLists] = useState<ListRow[]>([])
+  const [displayLists, setDisplayLists] = useState<ListRow[]>([])
+  const [hasPinnedLists, setHasPinnedLists] = useState(false)
   const [statsByListId, setStatsByListId] = useState<Record<number, ListStats>>(
     {},
   )
@@ -100,13 +101,23 @@ export default function HomeView() {
         .from('lists')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(4)
+        .limit(100)
       if (cancelled) return
-      const lists = (listsData as ListRow[] | null) ?? []
-      setRecentLists(lists)
+      const allLists = (listsData as ListRow[] | null) ?? []
+      const pinnedLists = [...allLists]
+        .filter((row) => Boolean(row.pinned_at))
+        .sort(
+          (a, b) =>
+            +new Date(b.pinned_at ?? b.created_at) -
+            +new Date(a.pinned_at ?? a.created_at),
+        )
+      const usingPinned = pinnedLists.length > 0
+      const selectedLists = usingPinned ? pinnedLists.slice(0, 4) : allLists.slice(0, 4)
+      setHasPinnedLists(usingPinned)
+      setDisplayLists(selectedLists)
 
-      if (lists.length > 0) {
-        const listIds = lists.map((row) => row.id)
+      if (selectedLists.length > 0) {
+        const listIds = selectedLists.map((row) => row.id)
         const { data: todoData } = await supabase
           .from('todos')
           .select('list_id,is_complete')
@@ -132,7 +143,7 @@ export default function HomeView() {
     }
   }, [])
 
-  const latestList = recentLists[0] ?? null
+  const latestList = displayLists[0] ?? null
   const latestStats = latestList
     ? (statsByListId[latestList.id] ?? { total: 0, completed: 0 })
     : { total: 0, completed: 0 }
@@ -223,9 +234,14 @@ export default function HomeView() {
           </Box>
 
           <Paper
+            component={RouterLink}
+            to={`/lists/${latestList.id}`}
             sx={(theme) => ({
+              display: 'block',
               p: 2,
               borderRadius: 3,
+              textDecoration: 'none',
+              color: 'inherit',
               bgcolor:
                 theme.palette.mode === 'dark'
                   ? alpha(normalizeListColor(latestList.color), 0.2)
@@ -301,10 +317,10 @@ export default function HomeView() {
 
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 900, mb: 1.25 }}>
-              Lists Progress
+              {hasPinnedLists ? 'Pinned' : 'Lists Progress'}
             </Typography>
             <Grid container spacing={1.25}>
-              {recentLists.map((entry) => {
+              {displayLists.map((entry) => {
                 const stats = statsByListId[entry.id] ?? {
                   total: 0,
                   completed: 0,
