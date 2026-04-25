@@ -5,6 +5,8 @@
 //   - SUPABASE_URL
 //   - SUPABASE_ANON_KEY
 //   - SUPABASE_SERVICE_ROLE_KEY
+// Optional:
+//   - APP_URL (for example: https://www.goalssync.com)
 // Body: { email: string, redirectTo?: string }
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -57,8 +59,15 @@ Deno.serve(async (req) => {
   }
   const rawEmail = typeof body.email === 'string' ? body.email : ''
   const email = rawEmail.trim().toLowerCase()
+  const configuredAppUrl =
+    Deno.env.get('APP_URL')?.trim().replace(/\/$/, '') ?? ''
+  const fallbackRedirectTo = configuredAppUrl
+    ? `${configuredAppUrl}/reset-password`
+    : undefined
   const redirectTo =
-    typeof body.redirectTo === 'string' ? body.redirectTo : undefined
+    typeof body.redirectTo === 'string' && body.redirectTo.trim().length > 0
+      ? body.redirectTo
+      : fallbackRedirectTo
 
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return json(400, { error: 'Valid email required' })

@@ -28,6 +28,7 @@ import { normalizeListColor } from '../listColors'
 import { normalizeListIcon } from '../listIcons'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
+import { resetPasswordUrl } from '../appUrl'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 type FriendshipRow = Database['public']['Tables']['friendships']['Row']
@@ -198,7 +199,7 @@ export default function FriendsView() {
     const { data, error } = await supabase.functions.invoke('invite-friend', {
       body: {
         email,
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: resetPasswordUrl,
       },
     })
     setAddLoading(false)

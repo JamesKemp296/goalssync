@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { supabase } from '../supabase'
 import AceCatIcon from '../components/AceCatIcon'
+import { resetPasswordUrl } from '../appUrl'
 
 type Msg = { type: 'error' | 'success'; text: string }
 
@@ -77,10 +78,9 @@ export default function AuthView() {
     if (!supabase) return
     setLoading(true)
     setMsg(null)
-    const redirectTo = `${window.location.origin}/reset-password`
     const { error } = await supabase.auth.resetPasswordForEmail(
       forgotEmail.trim(),
-      { redirectTo },
+      { redirectTo: resetPasswordUrl },
     )
     if (error) setMsg({ type: 'error', text: error.message })
     else
