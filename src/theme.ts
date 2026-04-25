@@ -57,6 +57,21 @@ export const createAppTheme = (mode: PaletteMode) =>
           },
         },
       },
+      MuiInputBase: {
+        styleOverrides: {
+          root: {
+            backgroundColor: mode === 'dark' ? 'transparent' : '#ffffff',
+            color: mode === 'dark' ? 'inherit' : '#1c1208',
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          notchedOutline: {
+            borderColor: mode === 'dark' ? '#4d4d4d' : '#b0b0b0',
+          },
+        },
+      },
     },
   })
 

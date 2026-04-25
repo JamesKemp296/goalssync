@@ -44,7 +44,7 @@ export default function ListsView() {
   const [lists, setLists] = useState<ListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [sort, setSort] = useState<SortKey>('recent')
+  const [sort, setSort] = useState<SortKey | null>('recent')
   const [pinnedOnly, setPinnedOnly] = useState(false)
   const [menuFor, setMenuFor] = useState<{
     id: number
@@ -134,7 +134,7 @@ export default function ListsView() {
       sorted.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
     } else if (sort === 'oldest') {
       sorted.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
-    } else {
+    } else if (sort === 'az') {
       sorted.sort((a, b) => a.title.localeCompare(b.title))
     }
     return sorted
@@ -145,6 +145,9 @@ export default function ListsView() {
     [lists],
   )
   const canPinMore = pinnedCount < MAX_PINNED_LISTS
+  const toggleSort = (nextSort: SortKey) => {
+    setSort((currentSort) => (currentSort === nextSort ? null : nextSort))
+  }
 
   const openCreateEditor = () => {
     setEditorMode('create')
@@ -256,17 +259,17 @@ export default function ListsView() {
           <Chip
             label="Recent"
             color={sort === 'recent' ? 'primary' : 'default'}
-            onClick={() => setSort('recent')}
+            onClick={() => toggleSort('recent')}
           />
           <Chip
             label="Oldest"
             color={sort === 'oldest' ? 'primary' : 'default'}
-            onClick={() => setSort('oldest')}
+            onClick={() => toggleSort('oldest')}
           />
           <Chip
             label="A–Z"
             color={sort === 'az' ? 'primary' : 'default'}
-            onClick={() => setSort('az')}
+            onClick={() => toggleSort('az')}
           />
           <Chip
             icon={<TbPin size={16} />}

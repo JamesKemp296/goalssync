@@ -17,7 +17,7 @@ export default function TodoComposer({
 }: TodoComposerProps) {
   return (
     <Box component="form" onSubmit={onSubmit} sx={{ mb: 2.5 }}>
-      <Stack direction="row" spacing={1}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
         <TextField
           fullWidth
           size="small"
@@ -30,6 +30,9 @@ export default function TodoComposer({
           aria-label="Add task"
           disabled={!value.trim()}
           sx={(theme) => ({
+            width: 38,
+            height: 38,
+            flexShrink: 0,
             bgcolor: 'text.primary',
             color: theme.palette.background.paper,
             '&:hover': { bgcolor: 'text.secondary' },

@@ -42,7 +42,7 @@ const HERO_STATES: HeroCopy[] = [
     iconKey: 'list',
   },
   {
-    title: "Good work, let's keep going",
+    title: 'Great work',
     subtitle: "You're building progress, keep the streak alive.",
     iconKey: 'fitness',
   },
@@ -334,22 +334,24 @@ export default function HomeView() {
                   )}
                 </Box>
               </Box>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {`${latestStats.completed} out of ${latestStats.total} tasks are completed`}
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={latestProgress}
-                sx={{
-                  height: 10,
-                  borderRadius: 999,
-                  bgcolor: alpha(normalizeListColor(latestList.color), 0.3),
-                  '& .MuiLinearProgress-bar': {
+              <Box sx={{ display: 'grid', gap: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {`${latestStats.completed} out of ${latestStats.total} tasks are completed`}
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={latestProgress}
+                  sx={{
+                    height: 10,
                     borderRadius: 999,
-                    bgcolor: normalizeListColor(latestList.color),
-                  },
-                }}
-              />
+                    bgcolor: alpha(normalizeListColor(latestList.color), 0.3),
+                    '& .MuiLinearProgress-bar': {
+                      borderRadius: 999,
+                      bgcolor: normalizeListColor(latestList.color),
+                    },
+                  }}
+                />
+              </Box>
               <Box
                 sx={{
                   display: 'flex',
