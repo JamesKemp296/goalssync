@@ -10,6 +10,7 @@ import ListsView from './views/ListsView'
 import TodosView from './views/TodosView'
 import SettingsView from './views/SettingsView'
 import ResetPasswordView from './views/ResetPasswordView'
+import FriendsView from './views/FriendsView'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -17,7 +18,9 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return
     void supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) =>
+      setSession(s),
+    )
     return () => sub.subscription.unsubscribe()
   }, [])
 
@@ -25,7 +28,8 @@ export default function App() {
     return (
       <Container maxWidth="sm" sx={{ mt: 8 }}>
         <Alert severity="error">
-          {supabaseConfigError}. Create `.env` from `.env.example` and restart `npm run dev`.
+          {supabaseConfigError}. Create `.env` from `.env.example` and restart
+          `npm run dev`.
         </Alert>
       </Container>
     )
@@ -65,6 +69,7 @@ export default function App() {
         <Route path="/home" element={<HomeView />} />
         <Route path="/lists" element={<ListsView />} />
         <Route path="/lists/:listId" element={<TodosView />} />
+        <Route path="/friends" element={<FriendsView />} />
         <Route path="/settings" element={<SettingsView session={session} />} />
         <Route path="/login" element={<Navigate to="/home" replace />} />
         <Route

@@ -63,6 +63,75 @@ export interface Database {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          id: string
+          email: string
+          first_name: string | null
+          last_name: string | null
+          created_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          first_name?: string | null
+          last_name?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          first_name?: string | null
+          last_name?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          user_a_id: string
+          user_b_id: string
+          created_at: string
+        }
+        Insert: {
+          user_a_id: string
+          user_b_id: string
+          created_at?: string
+        }
+        Update: {
+          user_a_id?: string
+          user_b_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      invites: {
+        Row: {
+          id: string
+          email: string
+          invited_by: string
+          created_at: string
+          accepted_at: string | null
+          accepted_by: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          invited_by: string
+          created_at?: string
+          accepted_at?: string | null
+          accepted_by?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          invited_by?: string
+          created_at?: string
+          accepted_at?: string | null
+          accepted_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

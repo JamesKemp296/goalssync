@@ -13,6 +13,7 @@ export default function AppShell() {
     if (path === '/home' || path === '/') view = 'Home'
     else if (path === '/lists') view = 'Lists'
     else if (path.startsWith('/lists/')) view = 'List'
+    else if (path === '/friends') view = 'Friends'
     else if (path === '/settings') view = 'Settings'
     else if (path === '/login') view = 'Sign in'
 

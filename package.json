@@ -4,13 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "supabase": "supabase",
+    "db:push": "supabase db push",
+    "deploy:function:invite-friend": "supabase functions deploy invite-friend"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -30,6 +33,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "supabase": "^2.95.3",
     "typescript": "^6.0.3",
     "vite": "^6.4.2"
   }

@@ -48,10 +48,19 @@ export default function TodosView() {
     setList(null)
     void (async () => {
       if (!supabase) return
+      const { data: authData } = await supabase.auth.getUser()
+      const myUserId = authData.user?.id
+      if (!myUserId) {
+        if (cancelled) return
+        setLoading(false)
+        navigate('/lists', { replace: true })
+        return
+      }
       const { data: listRow, error } = await supabase
         .from('lists')
         .select('*')
         .eq('id', listId)
+        .eq('user_id', myUserId)
         .maybeSingle()
       if (cancelled) return
       if (error || !listRow) {

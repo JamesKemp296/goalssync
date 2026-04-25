@@ -24,18 +24,26 @@ export type AppHeaderMenuItem = {
 type AppHeaderProps = {
   title: string
   backTo?: string
+  onBack?: () => void
   menuItems?: AppHeaderMenuItem[]
 }
 
 const SIDE_SLOT = 40
 
-export default function AppHeader({ title, backTo, menuItems }: AppHeaderProps) {
+export default function AppHeader({
+  title,
+  backTo,
+  onBack,
+  menuItems,
+}: AppHeaderProps) {
   const navigate = useNavigate()
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const menuOpen = Boolean(anchorEl)
 
+  const showBack = onBack !== undefined || backTo !== undefined
   const handleBack = () => {
-    if (backTo) navigate(backTo)
+    if (onBack) onBack()
+    else if (backTo) navigate(backTo)
     else navigate(-1)
   }
 
@@ -52,7 +60,7 @@ export default function AppHeader({ title, backTo, menuItems }: AppHeaderProps) 
       sx={{ borderBottom: 1, borderColor: 'divider' }}
     >
       <Toolbar sx={{ gap: 1 }}>
-        {backTo !== undefined ? (
+        {showBack ? (
           <IconButton edge="start" onClick={handleBack} aria-label="Back">
             <TbArrowLeft size={18} />
           </IconButton>

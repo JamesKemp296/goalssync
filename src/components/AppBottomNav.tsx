@@ -13,12 +13,7 @@ type Tab = {
 const TABS: Tab[] = [
   { value: '/home', label: 'Home', icon: <TbHome size={20} /> },
   { value: '/lists', label: 'Lists', icon: <TbListCheck size={20} /> },
-  {
-    value: '/friends',
-    label: 'Friends',
-    icon: <TbUsers size={20} />,
-    disabled: true,
-  },
+  { value: '/friends', label: 'Friends', icon: <TbUsers size={20} /> },
   { value: '/settings', label: 'Settings', icon: <TbSettings size={20} /> },
 ]
 

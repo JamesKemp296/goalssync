@@ -63,24 +63,43 @@ export default function SettingsView({ session }: SettingsViewProps) {
     if (!supabase) return
     setSavingProfile(true)
     setProfileFeedback(null)
+    const nextFirstName = draftFirstName.trim()
+    const nextLastName = draftLastName.trim()
     const { error } = await supabase.auth.updateUser({
       data: {
         ...session.user.user_metadata,
-        first_name: draftFirstName.trim() || null,
-        last_name: draftLastName.trim() || null,
+        first_name: nextFirstName || null,
+        last_name: nextLastName || null,
         birthday: draftBirthday || null,
       },
     })
-    setSavingProfile(false)
     if (error) {
+      setSavingProfile(false)
       setProfileFeedback({
         type: 'error',
         message: error.message,
       })
       return
     }
-    setFirstName(draftFirstName.trim())
-    setLastName(draftLastName.trim())
+    if (session.user.email) {
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: session.user.id,
+        email: session.user.email.toLowerCase(),
+        first_name: nextFirstName || null,
+        last_name: nextLastName || null,
+      })
+      if (profileError) {
+        setSavingProfile(false)
+        setProfileFeedback({
+          type: 'error',
+          message: `Auth profile saved, but public profile sync failed: ${profileError.message}`,
+        })
+        return
+      }
+    }
+    setSavingProfile(false)
+    setFirstName(nextFirstName)
+    setLastName(nextLastName)
     setBirthday(draftBirthday)
     setIsEditingProfile(false)
     setProfileFeedback({

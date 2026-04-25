@@ -65,11 +65,25 @@ export default function ListsView() {
     if (!supabase) return
     const db = supabase
     setLoading(true)
-    const [{ data: listRows }, { data: todoRows }] = await Promise.all([
-      db.from('lists').select('*'),
-      db.from('todos').select('list_id,is_complete'),
-    ])
+    const { data: authData } = await db.auth.getUser()
+    const myUserId = authData.user?.id
+    if (!myUserId) {
+      setLoading(false)
+      return
+    }
+    const { data: listRows } = await db
+      .from('lists')
+      .select('*')
+      .eq('user_id', myUserId)
     const rawLists = (listRows as ListRow[] | null) ?? []
+    const myListIds = rawLists.map((row) => row.id)
+    const { data: todoRows } =
+      myListIds.length > 0
+        ? await db
+            .from('todos')
+            .select('list_id,is_complete')
+            .in('list_id', myListIds)
+        : { data: [] as { list_id: number; is_complete: boolean }[] }
     const rows = rawLists.map((row) => ({
       ...row,
       icon: normalizeListIcon(row.icon),

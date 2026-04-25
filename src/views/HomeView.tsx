@@ -98,9 +98,16 @@ export default function HomeView() {
       if (!cancelled) setFirstName(resolvedFirstName)
       if (!cancelled) setEmail(authData.user?.email ?? '')
 
+      const myUserId = authData.user?.id
+      if (!myUserId) {
+        if (!cancelled) setLoading(false)
+        return
+      }
+
       const { data: listsData } = await supabase
         .from('lists')
         .select('*')
+        .eq('user_id', myUserId)
         .order('created_at', { ascending: false })
         .limit(100)
       if (cancelled) return

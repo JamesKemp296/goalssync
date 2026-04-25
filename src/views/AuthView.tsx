@@ -7,8 +7,6 @@ import {
   Card,
   Stack,
   TextField,
-  Tab,
-  Tabs,
   Typography,
   Alert,
   Link,
@@ -22,7 +20,6 @@ export default function AuthView() {
   const location = useLocation()
   const isForgotPassword = location.pathname === '/login/forgot-password'
 
-  const [tab, setTab] = useState(0)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [forgotEmail, setForgotEmail] = useState('')
@@ -67,16 +64,11 @@ export default function AuthView() {
     if (!supabase) return
     setLoading(true)
     setMsg(null)
-    const { error } =
-      tab === 0
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     if (error) setMsg({ type: 'error', text: error.message })
-    else if (tab === 1)
-      setMsg({
-        type: 'success',
-        text: 'Check your email to confirm your account.',
-      })
     setLoading(false)
   }
 
@@ -142,7 +134,12 @@ export default function AuthView() {
                 fullWidth
               />
               {msg && <Alert severity={msg.type}>{msg.text}</Alert>}
-              <Button type="submit" variant="contained" disabled={loading} fullWidth>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                fullWidth
+              >
                 Send reset link
               </Button>
               <Typography variant="body2" sx={{ textAlign: 'center' }}>
@@ -170,21 +167,13 @@ export default function AuthView() {
     >
       <Card sx={{ p: 3, width: '100%', maxWidth: 360 }}>
         {authChrome}
-        <Tabs
-          value={tab}
-          onChange={(_, v) => {
-            setTab(v)
-            setMsg(null)
-          }}
-          sx={{
-            mb: 2,
-            '& .MuiTabs-flexContainer': { justifyContent: 'center' },
-          }}
-          variant="fullWidth"
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 2, textAlign: 'center' }}
         >
-          <Tab label="Sign in" />
-          <Tab label="Sign up" />
-        </Tabs>
+          Sign in with the email used in your invite.
+        </Typography>
         <form onSubmit={submitAuth}>
           <Stack spacing={2}>
             <TextField
@@ -202,23 +191,26 @@ export default function AuthView() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete={tab === 0 ? 'current-password' : 'new-password'}
+              autoComplete="current-password"
               fullWidth
             />
-            {tab === 0 && (
-              <Typography variant="body2" sx={{ textAlign: 'right' }}>
-                <Link
-                  component={RouterLink}
-                  to="/login/forgot-password"
-                  underline="hover"
-                >
-                  Forgot password?
-                </Link>
-              </Typography>
-            )}
+            <Typography variant="body2" sx={{ textAlign: 'right' }}>
+              <Link
+                component={RouterLink}
+                to="/login/forgot-password"
+                underline="hover"
+              >
+                Forgot password?
+              </Link>
+            </Typography>
             {msg && <Alert severity={msg.type}>{msg.text}</Alert>}
-            <Button type="submit" variant="contained" disabled={loading} fullWidth>
-              {tab === 0 ? 'Sign in' : 'Sign up'}
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={loading}
+              fullWidth
+            >
+              Sign in
             </Button>
           </Stack>
         </form>
