@@ -9,7 +9,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   InputAdornment,
   ListItemIcon,
   ListItemText,
@@ -22,6 +21,7 @@ import {
 import { TbEdit, TbPin, TbPlus, TbSearch, TbTrash } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
 import ListCard from '../components/ListCard'
+import ListCardWrapper, { ListCardWrapperItem } from '../components/ListCardWrapper'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import {
@@ -45,6 +45,7 @@ export default function ListsView() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey>('recent')
+  const [pinnedOnly, setPinnedOnly] = useState(false)
   const [menuFor, setMenuFor] = useState<{
     id: number
     el: HTMLElement
@@ -108,11 +109,12 @@ export default function ListsView() {
   }, [])
 
   const visibleLists = useMemo(() => {
-    const unpinned = lists.filter((l) => !l.pinned_at)
+    let base = lists
+    if (pinnedOnly) base = base.filter((l) => Boolean(l.pinned_at))
     const needle = search.trim().toLowerCase()
     const filtered = needle
-      ? unpinned.filter((l) => l.title.toLowerCase().includes(needle))
-      : unpinned
+      ? base.filter((l) => l.title.toLowerCase().includes(needle))
+      : [...base]
     const sorted = [...filtered]
     if (sort === 'recent') {
       sorted.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
@@ -122,20 +124,13 @@ export default function ListsView() {
       sorted.sort((a, b) => a.title.localeCompare(b.title))
     }
     return sorted
-  }, [lists, search, sort])
+  }, [lists, search, sort, pinnedOnly])
 
-  const pinnedLists = useMemo(() => {
-    return [...lists]
-      .filter((l) => Boolean(l.pinned_at))
-      .sort(
-        (a, b) =>
-          +new Date(b.pinned_at ?? b.created_at) -
-          +new Date(a.pinned_at ?? a.created_at),
-      )
-      .slice(0, MAX_PINNED_LISTS)
-  }, [lists])
-
-  const canPinMore = pinnedLists.length < MAX_PINNED_LISTS
+  const pinnedCount = useMemo(
+    () => lists.filter((l) => Boolean(l.pinned_at)).length,
+    [lists],
+  )
+  const canPinMore = pinnedCount < MAX_PINNED_LISTS
 
   const openCreateEditor = () => {
     setEditorMode('create')
@@ -259,6 +254,12 @@ export default function ListsView() {
             color={sort === 'az' ? 'primary' : 'default'}
             onClick={() => setSort('az')}
           />
+          <Chip
+            icon={<TbPin size={16} />}
+            label="Pinned"
+            color={pinnedOnly ? 'primary' : 'default'}
+            onClick={() => setPinnedOnly((v) => !v)}
+          />
         </Stack>
 
         <Box
@@ -275,89 +276,55 @@ export default function ListsView() {
               <CircularProgress />
             </Box>
           ) : (
-            <Stack spacing={2}>
-              {pinnedLists.length > 0 ? (
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                    Pinned
-                  </Typography>
-                  <Grid container spacing={1.25}>
-                    {pinnedLists.map((list) => {
-                      const listColor = normalizeListColor(list.color)
-                      const stats = statsByListId[list.id] ?? {
-                        total: 0,
-                        completed: 0,
-                      }
-                      const progress =
-                        stats.total === 0
-                          ? 0
-                          : Math.round((stats.completed / stats.total) * 100)
-
-                      return (
-                        <Grid size={6} key={list.id}>
-                          <ListCard
-                            listId={list.id}
-                            title={list.title}
-                            listColor={listColor}
-                            progress={progress}
-                            total={stats.total}
-                            completed={stats.completed}
-                            iconKey={list.icon}
-                            showMenuButton
-                            onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
-                          />
-                        </Grid>
-                      )
-                    })}
-                  </Grid>
-                </Box>
-              ) : null}
-
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                  All Lists
-                </Typography>
-                {visibleLists.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-                    <Typography>
-                      {lists.length === 0
-                        ? 'No lists yet. Tap + to create one.'
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                All Lists
+              </Typography>
+              {visibleLists.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                  <Typography>
+                    {lists.length === 0
+                      ? 'No lists yet. Tap + to create one.'
+                      : pinnedOnly
+                        ? pinnedCount === 0
+                          ? 'No pinned lists yet.'
+                          : 'No pinned lists match your search.'
                         : 'No lists match your search.'}
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Grid container spacing={1.25}>
-                    {visibleLists.map((list) => {
-                      const listColor = normalizeListColor(list.color)
-                      const stats = statsByListId[list.id] ?? {
-                        total: 0,
-                        completed: 0,
-                      }
-                      const progress =
-                        stats.total === 0
-                          ? 0
-                          : Math.round((stats.completed / stats.total) * 100)
+                  </Typography>
+                </Box>
+              ) : (
+                <ListCardWrapper>
+                  {visibleLists.map((list) => {
+                    const listColor = normalizeListColor(list.color)
+                    const stats = statsByListId[list.id] ?? {
+                      total: 0,
+                      completed: 0,
+                    }
+                    const progress =
+                      stats.total === 0
+                        ? 0
+                        : Math.round((stats.completed / stats.total) * 100)
 
-                      return (
-                        <Grid size={6} key={list.id}>
-                          <ListCard
-                            listId={list.id}
-                            title={list.title}
-                            listColor={listColor}
-                            progress={progress}
-                            total={stats.total}
-                            completed={stats.completed}
-                            iconKey={list.icon}
-                            showMenuButton
-                            onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
-                          />
-                        </Grid>
-                      )
-                    })}
-                  </Grid>
-                )}
-              </Box>
-            </Stack>
+                    return (
+                      <ListCardWrapperItem key={list.id}>
+                        <ListCard
+                          listId={list.id}
+                          title={list.title}
+                          listColor={listColor}
+                          progress={progress}
+                          total={stats.total}
+                          completed={stats.completed}
+                          iconKey={list.icon}
+                          isPinned={Boolean(list.pinned_at)}
+                          showMenuButton
+                          onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
+                        />
+                      </ListCardWrapperItem>
+                    )
+                  })}
+                </ListCardWrapper>
+              )}
+            </Box>
           )}
         </Box>
       </Container>

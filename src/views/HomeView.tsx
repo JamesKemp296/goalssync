@@ -8,7 +8,6 @@ import {
   LinearProgress,
   Paper,
   Container,
-  Grid,
   Stack,
   Typography,
 } from '@mui/material'
@@ -16,6 +15,7 @@ import { alpha } from '@mui/material/styles'
 import { TbPlus } from 'react-icons/tb'
 import { getListIconComponent } from '../listIcons'
 import ListCard from '../components/ListCard'
+import ListCardWrapper, { ListCardWrapperItem } from '../components/ListCardWrapper'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
@@ -88,13 +88,10 @@ export default function HomeView() {
         | Record<string, unknown>
         | undefined
       const metaFirstName = metadata?.first_name
-      const emailPrefix = authData.user?.email?.split('@')[0]
       const resolvedFirstName =
         typeof metaFirstName === 'string' && metaFirstName.trim().length > 0
           ? metaFirstName.trim()
-          : emailPrefix && emailPrefix.length > 0
-            ? emailPrefix
-            : 'there'
+          : ''
       if (!cancelled) setFirstName(resolvedFirstName)
 
       const { data: listsData } = await supabase
@@ -160,10 +157,10 @@ export default function HomeView() {
     month: 'long',
     year: 'numeric',
   }).format(new Date())
-  const greeting = useMemo(
-    () => `Hey, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}`,
-    [firstName],
-  )
+  const greeting = useMemo(() => {
+    if (!firstName.trim()) return 'Hey, welcome!'
+    return `Hey, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}!`
+  }, [firstName])
 
   return (
     <Container maxWidth="sm" sx={{ pt: 3, pb: 2 }}>
@@ -229,7 +226,7 @@ export default function HomeView() {
                 color: 'text.primary',
               })}
             >
-              {firstName.charAt(0).toUpperCase()}
+              {(firstName.trim()[0] ?? '?').toUpperCase()}
             </Avatar>
           </Box>
 
@@ -319,7 +316,7 @@ export default function HomeView() {
             <Typography variant="h5" sx={{ fontWeight: 900, mb: 1.25 }}>
               {hasPinnedLists ? 'Pinned' : 'Lists Progress'}
             </Typography>
-            <Grid container spacing={1.25}>
+            <ListCardWrapper>
               {displayLists.map((entry) => {
                 const stats = statsByListId[entry.id] ?? {
                   total: 0,
@@ -331,7 +328,7 @@ export default function HomeView() {
                     : Math.round((stats.completed / stats.total) * 100)
                 const listColor = normalizeListColor(entry.color)
                 return (
-                  <Grid size={6} key={entry.id}>
+                  <ListCardWrapperItem key={entry.id}>
                     <ListCard
                       listId={entry.id}
                       title={entry.title}
@@ -341,10 +338,10 @@ export default function HomeView() {
                       completed={stats.completed}
                       iconKey={entry.icon}
                     />
-                  </Grid>
+                  </ListCardWrapperItem>
                 )
               })}
-            </Grid>
+            </ListCardWrapper>
           </Box>
         </Stack>
       )}

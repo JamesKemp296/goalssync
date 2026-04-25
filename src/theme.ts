@@ -5,12 +5,12 @@ const primaryMain = '#FFA02E'
 const secondaryMain = '#49eeeb'
 
 const sharedTypography = {
-  fontFamily: 'Verdana, sans-serif',
-  fontSize: 12,
-  fontWeightLight: 400,
-  fontWeightRegular: 500,
-  fontWeightMedium: 600,
-  fontWeightBold: 800,
+  fontFamily: 'Inter, sans-serif',
+  fontSize: 13,
+  fontWeightLight: 300,
+  fontWeightRegular: 400,
+  fontWeightMedium: 500,
+  fontWeightBold: 600,
 } as const
 
 /** Dark text on orange `#FFA02E` (~WCAG AA for normal UI copy) */
