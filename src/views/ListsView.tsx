@@ -390,7 +390,7 @@ export default function ListsView() {
           position: 'fixed',
           left: 20,
           right: 20,
-          bottom: 84,
+          bottom: 'calc(64px + env(safe-area-inset-bottom) + 16px)',
           zIndex: (theme) => theme.zIndex.appBar + 1,
           py: 1.25,
           borderRadius: 999,
