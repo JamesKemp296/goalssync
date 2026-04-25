@@ -21,10 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
-import RemoveDoneRoundedIcon from '@mui/icons-material/RemoveDoneRounded'
-import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded'
+import { TbCheckupList, TbListX, TbTrash, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
@@ -128,19 +125,19 @@ export default function TodosView() {
     () => [
       {
         label: 'Mark all complete',
-        icon: <DoneAllRoundedIcon fontSize="small" />,
+        icon: <TbCheckupList size={18} />,
         onClick: () => void markAll(true),
         disabled: todos.length === 0,
       },
       {
         label: 'Mark all incomplete',
-        icon: <RemoveDoneRoundedIcon fontSize="small" />,
+        icon: <TbListX size={18} />,
         onClick: () => void markAll(false),
         disabled: todos.length === 0,
       },
       {
         label: 'Delete list',
-        icon: <DeleteForeverRoundedIcon fontSize="small" />,
+        icon: <TbTrashX size={18} />,
         danger: true,
         onClick: () => void deleteList(),
       },
@@ -208,7 +205,7 @@ export default function TodosView() {
                       aria-label="Delete task"
                       onClick={() => void remove(t.id)}
                     >
-                      <DeleteOutlineRoundedIcon />
+                      <TbTrash size={18} />
                     </IconButton>
                   }
                 >

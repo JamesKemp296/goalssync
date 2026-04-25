@@ -13,9 +13,7 @@ import {
   Switch,
   Typography,
 } from '@mui/material'
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
-import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined'
-import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
+import { TbLogout2, TbMail, TbMoon } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabase'
 import { useThemeMode } from '../components/ThemeModeProvider'
@@ -66,7 +64,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
             <List>
               <ListItem>
                 <ListItemIcon>
-                  <EmailOutlinedIcon />
+                  <TbMail size={18} />
                 </ListItemIcon>
                 <ListItemText primary="Email" secondary={email} />
               </ListItem>
@@ -79,12 +77,12 @@ export default function SettingsView({ session }: SettingsViewProps) {
                     onChange={(_, checked) =>
                       setMode(checked ? 'dark' : 'light')
                     }
-                    inputProps={{ 'aria-label': 'Toggle dark mode' }}
+                    slotProps={{ input: { 'aria-label': 'Toggle dark mode' } }}
                   />
                 }
               >
                 <ListItemIcon>
-                  <DarkModeOutlinedIcon />
+                  <TbMoon size={18} />
                 </ListItemIcon>
                 <ListItemText
                   primary="Dark mode"
@@ -95,9 +93,9 @@ export default function SettingsView({ session }: SettingsViewProps) {
           </Paper>
 
           <Button
-            variant="outlined"
-            color="error"
-            startIcon={<LogoutRoundedIcon />}
+            variant="contained"
+            color="warning"
+            startIcon={<TbLogout2 size={18} />}
             onClick={() => void supabase?.auth.signOut()}
           >
             Sign out

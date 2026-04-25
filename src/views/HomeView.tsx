@@ -15,9 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import { TbExternalLink, TbPlus, TbTrash } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
@@ -107,7 +105,7 @@ export default function HomeView() {
               to="/lists"
               variant="contained"
               color="primary"
-              startIcon={<AddRoundedIcon />}
+              startIcon={<TbPlus size={18} />}
             >
               New list
             </Button>
@@ -137,7 +135,7 @@ export default function HomeView() {
                   component={RouterLink}
                   to={`/lists/${list.id}`}
                   size="small"
-                  endIcon={<OpenInNewRoundedIcon fontSize="small" />}
+                  endIcon={<TbExternalLink size={16} />}
                 >
                   Open
                 </Button>
@@ -167,7 +165,7 @@ export default function HomeView() {
                         aria-label="Delete task"
                         onClick={() => void remove(t.id)}
                       >
-                        <DeleteOutlineRoundedIcon />
+                        <TbTrash size={18} />
                       </IconButton>
                     }
                   >

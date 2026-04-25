@@ -14,6 +14,7 @@ export interface Database {
           id: number
           user_id: string
           title: string
+          icon: string
           color: string
           created_at: string
         }
@@ -21,6 +22,7 @@ export interface Database {
           id?: number
           user_id?: string
           title: string
+          icon?: string
           color?: string
           created_at?: string
         }
@@ -28,6 +30,7 @@ export interface Database {
           id?: number
           user_id?: string
           title?: string
+          icon?: string
           color?: string
           created_at?: string
         }

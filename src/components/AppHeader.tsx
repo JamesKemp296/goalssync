@@ -11,8 +11,7 @@ import {
   ListItemText,
   Box,
 } from '@mui/material'
-import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { TbArrowLeft, TbDotsVertical } from 'react-icons/tb'
 
 export type AppHeaderMenuItem = {
   label: string
@@ -46,11 +45,16 @@ export default function AppHeader({ title, backTo, menuItems }: AppHeaderProps) 
   const hasMenu = Boolean(menuItems && menuItems.length > 0)
 
   return (
-    <AppBar position="sticky" color="transparent" elevation={0}>
+    <AppBar
+      position="sticky"
+      color="default"
+      elevation={0}
+      sx={{ borderBottom: 1, borderColor: 'divider' }}
+    >
       <Toolbar sx={{ gap: 1 }}>
         {backTo !== undefined ? (
           <IconButton edge="start" onClick={handleBack} aria-label="Back">
-            <ArrowBackIosNewRoundedIcon fontSize="small" />
+            <TbArrowLeft size={18} />
           </IconButton>
         ) : (
           <Box sx={{ width: SIDE_SLOT }} />
@@ -68,7 +72,7 @@ export default function AppHeader({ title, backTo, menuItems }: AppHeaderProps) 
         {hasMenu ? (
           <>
             <IconButton edge="end" onClick={openMenu} aria-label="More options">
-              <MoreVertRoundedIcon />
+              <TbDotsVertical size={18} />
             </IconButton>
             <Menu anchorEl={anchorEl} open={menuOpen} onClose={closeMenu}>
               {menuItems!.map((item) => (

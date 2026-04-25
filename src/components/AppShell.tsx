@@ -6,13 +6,25 @@ export default function AppShell() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        height: '100dvh',
+        maxHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.default',
+        overflow: 'hidden',
       }}
     >
-      <Box sx={{ flex: 1, pb: 14 }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          // Bottom nav is position:fixed — reserve its height so content isn’t covered
+          pb: '64px',
+          overflowY: 'auto',
+        }}
+      >
         <Outlet />
       </Box>
       <AppBottomNav />

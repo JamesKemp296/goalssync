@@ -1,8 +1,5 @@
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material'
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
-import FormatListBulletedRoundedIcon from '@mui/icons-material/FormatListBulletedRounded'
-import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
+import { TbHome, TbListCheck, TbSettings, TbUsers } from 'react-icons/tb'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
@@ -14,15 +11,15 @@ type Tab = {
 }
 
 const TABS: Tab[] = [
-  { value: '/home', label: 'Home', icon: <HomeRoundedIcon /> },
-  { value: '/lists', label: 'Lists', icon: <FormatListBulletedRoundedIcon /> },
+  { value: '/home', label: 'Home', icon: <TbHome size={20} /> },
+  { value: '/lists', label: 'Lists', icon: <TbListCheck size={20} /> },
   {
     value: '/friends',
     label: 'Friends',
-    icon: <GroupRoundedIcon />,
+    icon: <TbUsers size={20} />,
     disabled: true,
   },
-  { value: '/settings', label: 'Settings', icon: <SettingsRoundedIcon /> },
+  { value: '/settings', label: 'Settings', icon: <TbSettings size={20} /> },
 ]
 
 export default function AppBottomNav() {
@@ -35,6 +32,7 @@ export default function AppBottomNav() {
     <Paper
       elevation={8}
       sx={{
+        border: 'none',
         position: 'fixed',
         bottom: 0,
         left: 0,

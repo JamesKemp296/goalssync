@@ -1,4 +1,5 @@
 import { createTheme, type PaletteMode } from '@mui/material'
+import { createSoftShadows } from './themeShadows'
 
 const primaryMain = '#FFA02E'
 const secondaryMain = '#49eeeb'
@@ -43,9 +44,19 @@ export const createAppTheme = (mode: PaletteMode) =>
           }),
     },
     typography: sharedTypography,
+    shadows: createSoftShadows(mode),
     spacing: 11,
     shape: {
       borderRadius: 6,
+    },
+    components: {
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            border: `1px solid ${mode === 'dark' ? '#262626' : '#e0e0e0'}`,
+          },
+        },
+      },
     },
   })
 

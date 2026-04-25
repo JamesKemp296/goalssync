@@ -12,6 +12,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   IconButton,
   InputAdornment,
   ListItemIcon,
@@ -22,14 +23,23 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import { alpha } from '@mui/material/styles'
+import {
+  TbDotsVertical,
+  TbEdit,
+  TbPlus,
+  TbSearch,
+  TbTrash,
+} from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
+import {
+  DEFAULT_LIST_ICON,
+  LIST_ICON_OPTIONS,
+  getListIconComponent,
+  normalizeListIcon,
+} from '../listIcons'
 import {
   DEFAULT_LIST_COLOR,
   LIST_PALETTE,
@@ -38,6 +48,7 @@ import {
 
 type ListRow = Database['public']['Tables']['lists']['Row']
 type SortKey = 'recent' | 'oldest' | 'az'
+type ListStats = { total: number; completed: number }
 
 export default function ListsView() {
   const [lists, setLists] = useState<ListRow[]>([])
@@ -53,13 +64,31 @@ export default function ListsView() {
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
+  const [iconKey, setIconKey] = useState<string>(DEFAULT_LIST_ICON)
   const [colorHex, setColorHex] = useState<string>(DEFAULT_LIST_COLOR)
+  const [statsByListId, setStatsByListId] = useState<Record<number, ListStats>>(
+    {},
+  )
 
   const load = async () => {
     if (!supabase) return
     setLoading(true)
-    const { data } = await supabase.from('lists').select('*')
-    setLists((data as ListRow[] | null) ?? [])
+    const [{ data: listRows }, { data: todoRows }] = await Promise.all([
+      supabase.from('lists').select('*'),
+      supabase.from('todos').select('list_id,is_complete'),
+    ])
+    setLists((listRows as ListRow[] | null) ?? [])
+
+    const stats: Record<number, ListStats> = {}
+    for (const row of (todoRows as
+      | { list_id: number; is_complete: boolean }[]
+      | null) ?? []) {
+      const current = stats[row.list_id] ?? { total: 0, completed: 0 }
+      current.total += 1
+      if (row.is_complete) current.completed += 1
+      stats[row.list_id] = current
+    }
+    setStatsByListId(stats)
     setLoading(false)
   }
 
@@ -87,6 +116,7 @@ export default function ListsView() {
     setEditorMode('create')
     setEditingId(null)
     setTitle('')
+    setIconKey(DEFAULT_LIST_ICON)
     setColorHex(DEFAULT_LIST_COLOR)
     setEditorOpen(true)
   }
@@ -96,6 +126,7 @@ export default function ListsView() {
     setEditorMode('edit')
     setEditingId(list.id)
     setTitle(list.title)
+    setIconKey(normalizeListIcon(list.icon))
     setColorHex(normalizeListColor(list.color))
     setEditorOpen(true)
   }
@@ -109,13 +140,16 @@ export default function ListsView() {
     e.preventDefault()
     if (!supabase) return
     const nextTitle = title.trim() || 'Untitled list'
+    const nextIcon = normalizeListIcon(iconKey)
     const hex = normalizeListColor(colorHex)
     if (editorMode === 'create') {
-      await supabase.from('lists').insert({ title: nextTitle, color: hex })
+      await supabase
+        .from('lists')
+        .insert({ title: nextTitle, icon: nextIcon, color: hex })
     } else if (editingId != null) {
       await supabase
         .from('lists')
-        .update({ title: nextTitle, color: hex })
+        .update({ title: nextTitle, icon: nextIcon, color: hex })
         .eq('id', editingId)
     }
     closeEditor()
@@ -130,9 +164,29 @@ export default function ListsView() {
   }
 
   return (
-    <>
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       <AppHeader title="Lists" />
-      <Container maxWidth="sm" sx={{ pt: 1, pb: 2 }}>
+      <Container
+        maxWidth="sm"
+        sx={{
+          pt: 1,
+          pb: 2,
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         <TextField
           fullWidth
           size="small"
@@ -143,7 +197,7 @@ export default function ListsView() {
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchRoundedIcon fontSize="small" />
+                  <TbSearch size={16} />
                 </InputAdornment>
               ),
             },
@@ -169,59 +223,137 @@ export default function ListsView() {
           />
         </Stack>
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : visibleLists.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-            <Typography>
-              {lists.length === 0
-                ? 'No lists yet. Tap + to create one.'
-                : 'No lists match your search.'}
-            </Typography>
-          </Box>
-        ) : (
-          <Stack spacing={1.5}>
-            {visibleLists.map((list) => (
-              <Card
-                key={list.id}
-                sx={{
-                  position: 'relative',
-                  borderLeft: '6px solid',
-                  borderLeftColor: normalizeListColor(list.color),
-                }}
-              >
-                <CardActionArea
-                  component={RouterLink}
-                  to={`/lists/${list.id}`}
-                  sx={{ p: 2, pr: 7 }}
-                >
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ fontWeight: 700 }}
-                    noWrap
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            pb: 12,
+          }}
+        >
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          ) : visibleLists.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+              <Typography>
+                {lists.length === 0
+                  ? 'No lists yet. Tap + to create one.'
+                  : 'No lists match your search.'}
+              </Typography>
+            </Box>
+          ) : (
+            <Stack spacing={1.5}>
+              {visibleLists.map((list) => {
+                const listColor = normalizeListColor(list.color)
+                const Icon = getListIconComponent(list.icon)
+                const stats = statsByListId[list.id] ?? {
+                  total: 0,
+                  completed: 0,
+                }
+                const progress =
+                  stats.total === 0
+                    ? 0
+                    : Math.round((stats.completed / stats.total) * 100)
+
+                return (
+                  <Card
+                    key={list.id}
+                    sx={(theme) => ({
+                      position: 'relative',
+                      bgcolor:
+                        theme.palette.mode === 'dark'
+                          ? alpha(listColor, 0.26)
+                          : alpha(listColor, 0.2),
+                    })}
                   >
-                    {list.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {new Date(list.created_at).toLocaleDateString()}
-                  </Typography>
-                </CardActionArea>
-                <IconButton
-                  aria-label="List options"
-                  size="small"
-                  sx={{ position: 'absolute', top: 8, right: 8 }}
-                  onClick={(e) =>
-                    setMenuFor({ id: list.id, el: e.currentTarget })
-                  }
-                >
-                  <MoreVertRoundedIcon />
-                </IconButton>
-              </Card>
-            ))}
-          </Stack>
-        )}
+                    <CardActionArea
+                      component={RouterLink}
+                      to={`/lists/${list.id}`}
+                      sx={{ p: 2 }}
+                    >
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
+                      >
+                        <Box
+                          sx={(theme) => ({
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            display: 'grid',
+                            placeItems: 'center',
+                            bgcolor:
+                              theme.palette.mode === 'dark'
+                                ? alpha(listColor, 0.75)
+                                : alpha(listColor, 0.45),
+                            color: theme.palette.getContrastText(listColor),
+                            '& svg': { fontSize: 18 },
+                          })}
+                        >
+                          <Icon />
+                        </Box>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontWeight: 700 }}
+                            noWrap
+                          >
+                            {list.title}
+                          </Typography>
+                          <Box
+                            sx={{
+                              mt: 0.75,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                            }}
+                          >
+                            <LinearProgress
+                              variant="determinate"
+                              value={progress}
+                              sx={(theme) => ({
+                                flex: 1,
+                                height: 6,
+                                borderRadius: 999,
+                                bgcolor:
+                                  theme.palette.mode === 'dark'
+                                    ? alpha(listColor, 0.25)
+                                    : alpha(listColor, 0.3),
+                                '& .MuiLinearProgress-bar': {
+                                  bgcolor: listColor,
+                                  borderRadius: 999,
+                                },
+                              })}
+                            />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {`${progress}%`}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </CardActionArea>
+                    <IconButton
+                      aria-label="List options"
+                      size="small"
+                      sx={{ position: 'absolute', top: 8, right: 8 }}
+                      onClick={(e) =>
+                        setMenuFor({ id: list.id, el: e.currentTarget })
+                      }
+                    >
+                      <TbDotsVertical size={18} />
+                    </IconButton>
+                  </Card>
+                )
+              })}
+            </Stack>
+          )}
+        </Box>
       </Container>
 
       <Menu
@@ -236,7 +368,7 @@ export default function ListsView() {
           }}
         >
           <ListItemIcon>
-            <EditRoundedIcon fontSize="small" />
+            <TbEdit size={18} />
           </ListItemIcon>
           <ListItemText>Edit list</ListItemText>
         </MenuItem>
@@ -245,7 +377,7 @@ export default function ListsView() {
           sx={{ color: 'error.main' }}
         >
           <ListItemIcon sx={{ color: 'error.main' }}>
-            <DeleteOutlineRoundedIcon fontSize="small" />
+            <TbTrash size={18} />
           </ListItemIcon>
           <ListItemText>Delete list</ListItemText>
         </MenuItem>
@@ -255,7 +387,7 @@ export default function ListsView() {
         variant="contained"
         color="primary"
         size="large"
-        startIcon={<AddRoundedIcon />}
+        startIcon={<TbPlus size={18} />}
         onClick={openCreateEditor}
         aria-label="New list"
         sx={{
@@ -272,12 +404,7 @@ export default function ListsView() {
         New list
       </Button>
 
-      <Dialog
-        open={editorOpen}
-        onClose={closeEditor}
-        fullWidth
-        maxWidth="xs"
-      >
+      <Dialog open={editorOpen} onClose={closeEditor} fullWidth maxWidth="xs">
         <form onSubmit={saveList}>
           <DialogTitle>
             {editorMode === 'create' ? 'New list' : 'Edit list'}
@@ -293,6 +420,59 @@ export default function ListsView() {
               onChange={(e) => setTitle(e.target.value)}
               sx={{ mb: 2 }}
             />
+            <Typography variant="overline" color="text.secondary">
+              Icon
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                gap: 1,
+                mt: 0.5,
+                mb: 2,
+              }}
+            >
+              {LIST_ICON_OPTIONS.map((item) => {
+                const selected = iconKey === item.key
+                const Icon = item.Icon
+                return (
+                  <Box
+                    key={item.key}
+                    component="button"
+                    type="button"
+                    title={item.label}
+                    aria-label={item.label}
+                    aria-pressed={selected}
+                    onClick={() => setIconKey(item.key)}
+                    sx={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      minHeight: 0,
+                      border: 0,
+                      borderRadius: 1,
+                      display: 'grid',
+                      placeItems: 'center',
+                      cursor: 'pointer',
+                      bgcolor: selected
+                        ? alpha(colorHex, 0.32)
+                        : 'action.hover',
+                      boxSizing: 'border-box',
+                      outline: selected ? '3px solid' : '2px solid transparent',
+                      outlineColor: selected ? 'primary.main' : 'transparent',
+                      outlineOffset: 1,
+                      p: 0,
+                      '&:focus-visible': {
+                        outline: '2px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: 2,
+                      },
+                    }}
+                  >
+                    <Icon size={18} />
+                  </Box>
+                )
+              })}
+            </Box>
             <Typography variant="overline" color="text.secondary">
               Color
             </Typography>
@@ -321,7 +501,10 @@ export default function ListsView() {
                       minHeight: 0,
                       border: 0,
                       borderRadius: 1,
-                      bgcolor: hex,
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? alpha(hex, 0.75)
+                          : alpha(hex, 0.45),
                       cursor: 'pointer',
                       boxSizing: 'border-box',
                       outline: selected ? '3px solid' : '2px solid transparent',
@@ -348,6 +531,6 @@ export default function ListsView() {
           </DialogActions>
         </form>
       </Dialog>
-    </>
+    </Box>
   )
 }
