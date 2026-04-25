@@ -72,12 +72,33 @@ export default function ListsView() {
 
   const load = async () => {
     if (!supabase) return
+    const db = supabase
     setLoading(true)
     const [{ data: listRows }, { data: todoRows }] = await Promise.all([
-      supabase.from('lists').select('*'),
-      supabase.from('todos').select('list_id,is_complete'),
+      db.from('lists').select('*'),
+      db.from('todos').select('list_id,is_complete'),
     ])
-    setLists((listRows as ListRow[] | null) ?? [])
+    const rawLists = (listRows as ListRow[] | null) ?? []
+    const rows = rawLists.map((row) => ({
+      ...row,
+      icon: normalizeListIcon(row.icon),
+      color: normalizeListColor(row.color),
+    }))
+    setLists(rows)
+    const updates = rows.filter(
+      (row, idx) =>
+        row.color !== rawLists[idx]?.color || row.icon !== rawLists[idx]?.icon,
+    )
+    if (updates.length > 0) {
+      void Promise.all(
+        updates.map((row) =>
+          db
+            .from('lists')
+            .update({ icon: row.icon, color: row.color })
+            .eq('id', row.id),
+        ),
+      )
+    }
 
     const stats: Record<number, ListStats> = {}
     for (const row of (todoRows as
@@ -454,7 +475,7 @@ export default function ListsView() {
                       placeItems: 'center',
                       cursor: 'pointer',
                       bgcolor: selected
-                        ? alpha(colorHex, 0.32)
+                        ? colorHex
                         : 'action.hover',
                       boxSizing: 'border-box',
                       outline: selected ? '3px solid' : '2px solid transparent',
@@ -501,10 +522,7 @@ export default function ListsView() {
                       minHeight: 0,
                       border: 0,
                       borderRadius: 1,
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? alpha(hex, 0.75)
-                          : alpha(hex, 0.45),
+                      bgcolor: hex,
                       cursor: 'pointer',
                       boxSizing: 'border-box',
                       outline: selected ? '3px solid' : '2px solid transparent',

@@ -40,7 +40,7 @@ create table lists (
   user_id uuid not null references auth.users default auth.uid(),
   title text not null,
   icon text not null default 'list',
-  color text not null default '#26a69a',
+  color text not null default '#92d0c8',
   created_at timestamptz not null default now()
 );
 
@@ -81,10 +81,10 @@ alter table lists
   add column if not exists icon text not null default 'list';
 
 alter table lists
-  add column if not exists color text not null default '#26a69a';
+  add column if not exists color text not null default '#92d0c8';
 ```
 
-(`list` and `#26a69a` match defaults in `src/listIcons.ts` / `src/listColors.ts`.)
+(`list` and `#92d0c8` match defaults in `src/listIcons.ts` / `src/listColors.ts`.)
 
 ### Migrating from the older single-table `todos` (with `user_id`)
 
@@ -96,7 +96,7 @@ create table lists (
   user_id uuid not null references auth.users default auth.uid(),
   title text not null,
   icon text not null default 'list',
-  color text not null default '#26a69a',
+  color text not null default '#92d0c8',
   created_at timestamptz not null default now()
 );
 

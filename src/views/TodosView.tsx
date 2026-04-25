@@ -21,7 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { TbCheckupList, TbListX, TbTrash, TbTrashX } from 'react-icons/tb'
+import { TbCheckupList, TbList, TbTrash, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
@@ -131,7 +131,7 @@ export default function TodosView() {
       },
       {
         label: 'Mark all incomplete',
-        icon: <TbListX size={18} />,
+        icon: <TbList size={18} />,
         onClick: () => void markAll(false),
         disabled: todos.length === 0,
       },
