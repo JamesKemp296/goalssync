@@ -30,7 +30,7 @@ function readCachedMode(): PaletteMode {
   } catch {
     // ignore storage errors (private mode, etc.)
   }
-  return 'dark'
+  return 'light'
 }
 
 function modeFromUserMetadata(session: Session | null): PaletteMode | null {

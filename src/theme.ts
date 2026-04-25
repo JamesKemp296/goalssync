@@ -75,4 +75,4 @@ export const createAppTheme = (mode: PaletteMode) =>
     },
   })
 
-export default createAppTheme('dark')
+export default createAppTheme('light')
