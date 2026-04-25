@@ -57,7 +57,14 @@ export default function AppHeader({
       position="sticky"
       color="default"
       elevation={0}
-      sx={{ borderBottom: 1, borderColor: 'divider' }}
+      sx={{
+        top: 0,
+        borderBottom: 1,
+        borderColor: 'divider',
+        pt: 'env(safe-area-inset-top)',
+        pl: 'env(safe-area-inset-left)',
+        pr: 'env(safe-area-inset-right)',
+      }}
     >
       <Toolbar sx={{ gap: 1 }}>
         {showBack ? (

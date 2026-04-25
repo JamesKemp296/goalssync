@@ -33,11 +33,11 @@ export default function AppBottomNav() {
         left: 0,
         right: 0,
         zIndex: (theme) => theme.zIndex.appBar,
-        borderTopLeftRadius: 0,
-        borderTopRightRadius: 0,
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
+        borderRadius: 0,
         overflow: 'hidden',
+        pb: 'env(safe-area-inset-bottom)',
+        pl: 'env(safe-area-inset-left)',
+        pr: 'env(safe-area-inset-right)',
       }}
     >
       <BottomNavigation

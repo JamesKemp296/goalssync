@@ -37,8 +37,7 @@ export default function AppShell() {
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
-          // Bottom nav is position:fixed — reserve its height so content isn’t covered
-          pb: '64px',
+          pb: 'calc(64px + env(safe-area-inset-bottom))',
           overflowY: 'auto',
         }}
       >
