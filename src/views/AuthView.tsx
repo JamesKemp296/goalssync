@@ -38,7 +38,7 @@ export default function AuthView() {
       }}
     >
       <Card sx={{ p: 3, width: 360 }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>Todo</Typography>
+        <Typography variant="h5" sx={{ mb: 2 }}>Goals Sync</Typography>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
           <Tab label="Sign in" />
           <Tab label="Sign up" />
