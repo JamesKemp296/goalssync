@@ -1,0 +1,59 @@
+import type { SVGProps } from 'react'
+
+type CatIconBaseProps = SVGProps<SVGSVGElement> & {
+  furColor: string
+  accentColor?: string
+}
+
+export default function CatIconBase({
+  furColor,
+  accentColor = '#f58f86',
+  ...svgProps
+}: CatIconBaseProps) {
+  return (
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" {...svgProps}>
+      <circle cx="32" cy="36" r="19" fill={furColor} />
+      <path
+        d="M14 24 L22 7 L30 24 Z"
+        fill={furColor}
+        transform="rotate(-14 22 18)"
+      />
+      <path
+        d="M34 24 L42 7 L50 24 Z"
+        fill={furColor}
+        transform="rotate(14 42 18)"
+      />
+      <path
+        d="M21 22 L23.5 15 L26 22 Z"
+        fill={accentColor}
+        transform="rotate(-14 23.5 19)"
+      />
+      <path
+        d="M38 22 L40.5 15 L43 22 Z"
+        fill={accentColor}
+        transform="rotate(14 40.5 19)"
+      />
+      <circle cx="25" cy="33" r="2.7" fill="#1f2328" />
+      <circle cx="39" cy="33" r="2.7" fill="#1f2328" />
+      <path d="M32 36 L29 40 H35 Z" fill={accentColor} />
+      <path
+        d="M26 43 C28 45 30 45 32 43"
+        fill="none"
+        stroke="#1f2328"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M32 43 C34 45 36 45 38 43"
+        fill="none"
+        stroke="#1f2328"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path d="M17 37 H25" stroke="#1f2328" strokeWidth="2" strokeLinecap="round" />
+      <path d="M17 41 H25" stroke="#1f2328" strokeWidth="2" strokeLinecap="round" />
+      <path d="M39 37 H47" stroke="#1f2328" strokeWidth="2" strokeLinecap="round" />
+      <path d="M39 41 H47" stroke="#1f2328" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}

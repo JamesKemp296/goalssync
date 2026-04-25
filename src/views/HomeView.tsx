@@ -15,7 +15,9 @@ import { alpha } from '@mui/material/styles'
 import { TbPlus } from 'react-icons/tb'
 import { getListIconComponent } from '../listIcons'
 import ListCard from '../components/ListCard'
-import ListCardWrapper, { ListCardWrapperItem } from '../components/ListCardWrapper'
+import ListCardWrapper, {
+  ListCardWrapperItem,
+} from '../components/ListCardWrapper'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
@@ -55,7 +57,7 @@ const HERO_STATES: HeroCopy[] = [
     iconKey: 'events',
   },
   {
-    title: "Hurrah! You've completed your tasks",
+    title: 'Hurrah!',
     subtitle: 'Everything in this list is done. Nice work.',
     iconKey: 'personal',
   },
@@ -77,6 +79,7 @@ export default function HomeView() {
   )
   const [loading, setLoading] = useState(true)
   const [firstName, setFirstName] = useState('there')
+  const [email, setEmail] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +96,7 @@ export default function HomeView() {
           ? metaFirstName.trim()
           : ''
       if (!cancelled) setFirstName(resolvedFirstName)
+      if (!cancelled) setEmail(authData.user?.email ?? '')
 
       const { data: listsData } = await supabase
         .from('lists')
@@ -109,7 +113,9 @@ export default function HomeView() {
             +new Date(a.pinned_at ?? a.created_at),
         )
       const usingPinned = pinnedLists.length > 0
-      const selectedLists = usingPinned ? pinnedLists.slice(0, 4) : allLists.slice(0, 4)
+      const selectedLists = usingPinned
+        ? pinnedLists.slice(0, 4)
+        : allLists.slice(0, 4)
       setHasPinnedLists(usingPinned)
       setDisplayLists(selectedLists)
 
@@ -161,6 +167,28 @@ export default function HomeView() {
     if (!firstName.trim()) return 'Hey, welcome!'
     return `Hey, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}!`
   }, [firstName])
+  const nameInitial = (
+    firstName.trim()[0] ??
+    email.trim()[0] ??
+    '?'
+  ).toUpperCase()
+  const isNutmegUser = useMemo(() => {
+    const normalizedFirstName = firstName.toLowerCase()
+    const normalizedEmail = email.toLowerCase()
+    return (
+      normalizedFirstName.includes('lindsey') ||
+      normalizedEmail.includes('lindsey')
+    )
+  }, [firstName, email])
+  const catSvgSrc = isNutmegUser ? '/nutmeg.svg' : '/ace.svg'
+  const showCatInHeroIcon = latestProgress === 100
+
+  useEffect(() => {
+    const faviconLink =
+      document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (!faviconLink) return
+    faviconLink.href = catSvgSrc
+  }, [catSvgSrc])
 
   return (
     <Container maxWidth="sm" sx={{ pt: 3, pb: 2 }}>
@@ -218,15 +246,15 @@ export default function HomeView() {
               </Typography>
             </Box>
             <Avatar
-              sx={(theme) => ({
-                width: 48,
-                height: 48,
-                fontWeight: 700,
-                bgcolor: alpha(theme.palette.text.primary, 0.12),
-                color: 'text.primary',
-              })}
+              sx={{
+                width: 50,
+                height: 50,
+                bgcolor: 'primary.main',
+                fontWeight: 900,
+                fontSize: 28,
+              }}
             >
-              {(firstName.trim()[0] ?? '?').toUpperCase()}
+              {nameInitial}
             </Avatar>
           </Box>
 
@@ -267,11 +295,12 @@ export default function HomeView() {
                 </Box>
                 <Box
                   sx={(theme) => ({
-                    width: 52,
-                    height: 52,
+                    width: 58,
+                    height: 58,
                     borderRadius: '50%',
                     display: 'grid',
                     placeItems: 'center',
+                    position: 'relative',
                     flexShrink: 0,
                     bgcolor:
                       theme.palette.mode === 'dark'
@@ -279,7 +308,23 @@ export default function HomeView() {
                         : alpha(normalizeListColor(latestList.color), 0.5),
                   })}
                 >
-                  <HeroIcon size={28} />
+                  {showCatInHeroIcon ? (
+                    <Avatar
+                      alt={isNutmegUser ? 'Nutmeg cat icon' : 'Ace cat icon'}
+                      src={catSvgSrc}
+                      sx={{
+                        width: 78,
+                        height: 78,
+                        bgcolor: 'transparent',
+                        position: 'absolute',
+                        top: '42%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    />
+                  ) : (
+                    <HeroIcon size={36} />
+                  )}
                 </Box>
               </Box>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
