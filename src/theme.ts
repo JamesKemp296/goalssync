@@ -63,6 +63,10 @@ export const createAppTheme = (mode: PaletteMode) =>
             backgroundColor: mode === 'dark' ? 'transparent' : '#ffffff',
             color: mode === 'dark' ? 'inherit' : '#1c1208',
           },
+          input: {
+            // Prevent iOS Safari/PWA auto-zoom on focus for text inputs.
+            fontSize: '16px',
+          },
         },
       },
       MuiOutlinedInput: {
