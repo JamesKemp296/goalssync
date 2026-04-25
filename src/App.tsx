@@ -9,6 +9,7 @@ import HomeView from './views/HomeView'
 import ListsView from './views/ListsView'
 import TodosView from './views/TodosView'
 import SettingsView from './views/SettingsView'
+import ResetPasswordView from './views/ResetPasswordView'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -49,6 +50,8 @@ export default function App() {
     return (
       <Routes>
         <Route path="/login" element={<AuthView />} />
+        <Route path="/login/forgot-password" element={<AuthView />} />
+        <Route path="/reset-password" element={<ResetPasswordView />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
@@ -56,6 +59,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/reset-password" element={<ResetPasswordView />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<HomeView />} />
@@ -63,6 +67,10 @@ export default function App() {
         <Route path="/lists/:listId" element={<TodosView />} />
         <Route path="/settings" element={<SettingsView session={session} />} />
         <Route path="/login" element={<Navigate to="/home" replace />} />
+        <Route
+          path="/login/forgot-password"
+          element={<Navigate to="/home" replace />}
+        />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>

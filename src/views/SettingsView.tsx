@@ -92,7 +92,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
   return (
     <>
       <AppHeader title="Settings" />
-      <Container maxWidth="sm" sx={{ pt: 2 }}>
+      <Container maxWidth="sm" sx={{ py: 2 }}>
         <Stack spacing={1}>
           <Paper sx={{ p: 2, pb: 1, textAlign: 'center' }}>
             <Avatar
