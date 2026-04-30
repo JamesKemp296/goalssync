@@ -14,7 +14,6 @@ import FriendsView from './views/FriendsView'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
-
   useEffect(() => {
     if (!supabase) return
     void supabase.auth.getSession().then(({ data }) => setSession(data.session))

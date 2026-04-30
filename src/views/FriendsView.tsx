@@ -43,6 +43,7 @@ type ViewMode =
   | { kind: 'friend-todos'; friend: Friend; list: ListRow }
 
 type Feedback = { type: 'success' | 'error'; text: string }
+const INVITE_ALLOWED_EMAIL = 'jamesdanielkemp@gmail.com'
 
 function profileToFriend(row: ProfileRow): Friend {
   const displayName =
@@ -54,6 +55,7 @@ function profileToFriend(row: ProfileRow): Friend {
 
 export default function FriendsView() {
   const [me, setMe] = useState<string | null>(null)
+  const [meEmail, setMeEmail] = useState<string>('')
   const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ViewMode>({ kind: 'friend-list' })
@@ -76,7 +78,9 @@ export default function FriendsView() {
     setLoading(true)
     const { data: authData } = await supabase.auth.getUser()
     const myId = authData.user?.id ?? null
+    const myEmail = authData.user?.email?.toLowerCase() ?? ''
     setMe(myId)
+    setMeEmail(myEmail)
 
     const { data: rows, error } = await supabase
       .from('friendships')
@@ -192,6 +196,7 @@ export default function FriendsView() {
   const submitInvite = async (e: FormEvent) => {
     e.preventDefault()
     if (!supabase) return
+    if (meEmail !== INVITE_ALLOWED_EMAIL) return
     const email = addEmail.trim().toLowerCase()
     if (!email) return
     setAddLoading(true)
@@ -244,6 +249,8 @@ export default function FriendsView() {
     return view.list.title
   }, [view])
 
+  const canInvite = meEmail === INVITE_ALLOWED_EMAIL
+
   const handleBack = () => {
     if (view.kind === 'friend-todos') {
       setView({ kind: 'friend-lists', friend: view.friend })
@@ -289,6 +296,7 @@ export default function FriendsView() {
             loading={loading}
             friends={friends}
             pageFeedback={pageFeedback}
+            canInvite={canInvite}
             onOpenFriend={(f) => {
               setPageFeedback(null)
               setView({ kind: 'friend-lists', friend: f })
@@ -366,6 +374,7 @@ type FriendListPanelProps = {
   loading: boolean
   friends: Friend[]
   pageFeedback: Feedback | null
+  canInvite: boolean
   onOpenFriend: (friend: Friend) => void
   onAdd: () => void
 }
@@ -374,20 +383,23 @@ function FriendListPanel({
   loading,
   friends,
   pageFeedback,
+  canInvite,
   onOpenFriend,
   onAdd,
 }: FriendListPanelProps) {
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="contained"
-          startIcon={<TbPlus size={16} />}
-          onClick={onAdd}
-        >
-          Add friend
-        </Button>
-      </Box>
+      {canInvite && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="contained"
+            startIcon={<TbPlus size={16} />}
+            onClick={onAdd}
+          >
+            Add friend
+          </Button>
+        </Box>
+      )}
       {pageFeedback && (
         <Alert severity={pageFeedback.type}>{pageFeedback.text}</Alert>
       )}
@@ -398,9 +410,11 @@ function FriendListPanel({
       ) : friends.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography>No friends yet.</Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            Tap &quot;Add friend&quot; to invite someone by email.
-          </Typography>
+          {canInvite && (
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              Tap &quot;Add friend&quot; to invite someone by email.
+            </Typography>
+          )}
         </Box>
       ) : (
         <Stack spacing={1}>

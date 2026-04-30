@@ -56,9 +56,13 @@ export default function AppHeader({
     <AppBar
       position="sticky"
       color="default"
-      elevation={0}
+      elevation={1}
       sx={{
         top: 0,
+        bgcolor: 'background.paper',
+        borderTop: 0,
+        borderLeft: 0,
+        borderRight: 0,
         borderBottom: 1,
         borderColor: 'divider',
         pt: 'env(safe-area-inset-top)',

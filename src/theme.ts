@@ -3,6 +3,10 @@ import { createSoftShadows } from './themeShadows'
 
 const primaryMain = '#FFA02E'
 const secondaryMain = '#49eeeb'
+const lightSurfaceBorder = '#e0e0e0'
+const darkSurfaceBorder = '#262626'
+const lightInputBorder = '#b0b0b0'
+const darkInputBorder = '#4d4d4d'
 
 const sharedTypography = {
   fontFamily: 'Inter, sans-serif',
@@ -31,12 +35,14 @@ export const createAppTheme = (mode: PaletteMode) =>
       },
       ...(mode === 'dark'
         ? {
+            divider: darkSurfaceBorder,
             background: {
               default: '#162e14',
               paper: '#162e14',
             },
           }
         : {
+            divider: lightSurfaceBorder,
             background: {
               default: '#f5f5f3',
               paper: '#fafaf8',
@@ -53,7 +59,9 @@ export const createAppTheme = (mode: PaletteMode) =>
       MuiPaper: {
         styleOverrides: {
           root: {
-            border: `1px solid ${mode === 'dark' ? '#262626' : '#e0e0e0'}`,
+            border: `1px solid ${
+              mode === 'dark' ? darkSurfaceBorder : lightSurfaceBorder
+            }`,
           },
         },
       },
@@ -72,7 +80,7 @@ export const createAppTheme = (mode: PaletteMode) =>
       MuiOutlinedInput: {
         styleOverrides: {
           notchedOutline: {
-            borderColor: mode === 'dark' ? '#4d4d4d' : '#b0b0b0',
+            borderColor: mode === 'dark' ? darkInputBorder : lightInputBorder,
           },
         },
       },

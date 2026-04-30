@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { TbPlus } from 'react-icons/tb'
+import { TbHeartFilled, TbPlus } from 'react-icons/tb'
 import { getListIconComponent } from '../listIcons'
 import ListCard from '../components/ListCard'
 import ListCardWrapper, {
@@ -37,28 +37,28 @@ type HeroCopy = {
 
 const HERO_STATES: HeroCopy[] = [
   {
-    title: "Let's get started",
-    subtitle: 'A quick first win gets momentum going.',
+    title: 'Start strong',
+    subtitle: 'Pick one task and get momentum.',
     iconKey: 'list',
   },
   {
-    title: 'Great work',
-    subtitle: "You're building progress, keep the streak alive.",
+    title: 'Nice progress',
+    subtitle: 'You are moving through this list.',
     iconKey: 'fitness',
   },
   {
-    title: 'You are over half way',
-    subtitle: 'Great pace. The finish line is getting closer.',
+    title: 'More than halfway',
+    subtitle: 'You are on pace. Keep going.',
     iconKey: 'work',
   },
   {
-    title: 'You are so close',
-    subtitle: 'Only a few tasks left. Finish strong.',
+    title: 'Almost there',
+    subtitle: 'Only a few tasks left.',
     iconKey: 'events',
   },
   {
-    title: 'Hurrah!',
-    subtitle: 'Everything in this list is done. Nice work.',
+    title: 'All done!',
+    subtitle: 'Everything in this list is complete.',
     iconKey: 'personal',
   },
 ]
@@ -187,6 +187,11 @@ export default function HomeView() {
       normalizedEmail.includes('lindsey')
     )
   }, [firstName, email])
+  const isLindsey = firstName.trim().toLowerCase() === 'lindsey'
+  const showLindseyHero = useMemo(
+    () => isLindsey && Math.random() < 0.3,
+    [isLindsey, latestList?.id],
+  )
   const catSvgSrc = isNutmegUser ? '/nutmeg.svg' : '/ace.svg'
   const showCatInHeroIcon = latestProgress === 100
 
@@ -294,10 +299,12 @@ export default function HomeView() {
                     variant="h4"
                     sx={{ fontWeight: 900, lineHeight: 1.2 }}
                   >
-                    {heroState.title}
+                    {showLindseyHero ? 'Hey gorgeous' : heroState.title}
                   </Typography>
                   <Typography color="text.secondary">
-                    {heroState.subtitle}
+                    {showLindseyHero
+                      ? 'I love you so much'
+                      : heroState.subtitle}
                   </Typography>
                 </Box>
                 <Box
@@ -315,7 +322,9 @@ export default function HomeView() {
                         : alpha(normalizeListColor(latestList.color), 0.5),
                   })}
                 >
-                  {showCatInHeroIcon ? (
+                  {showLindseyHero ? (
+                    <TbHeartFilled size={48} color="#d32f2f" />
+                  ) : showCatInHeroIcon ? (
                     <Avatar
                       alt={isNutmegUser ? 'Nutmeg cat icon' : 'Ace cat icon'}
                       src={catSvgSrc}

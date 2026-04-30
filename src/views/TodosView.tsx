@@ -165,7 +165,10 @@ export default function TodosView() {
           bgcolor: normalizeListColor(list.color),
         }}
       />
-      <Container maxWidth="sm" sx={{ pt: 3 }}>
+      <Container
+        maxWidth="sm"
+        sx={{ pt: 3, pb: 'calc(64px + env(safe-area-inset-bottom) + 4px)' }}
+      >
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2.5 }}>
           {list.title}
         </Typography>
