@@ -4,20 +4,19 @@ import {
   Avatar,
   Box,
   Button,
-  CircularProgress,
-  LinearProgress,
   Paper,
   Container,
+  Skeleton,
   Stack,
   Typography,
 } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import { TbHeartFilled, TbPlus } from 'react-icons/tb'
 import { getListIconComponent } from '../listIcons'
 import ListCard from '../components/ListCard'
 import ListCardWrapper, {
   ListCardWrapperItem,
 } from '../components/ListCardWrapper'
+import { HeroCard } from '../components/HeroCard'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
@@ -194,6 +193,29 @@ export default function HomeView() {
   )
   const catSvgSrc = isNutmegUser ? '/nutmeg.svg' : '/ace.svg'
   const showCatInHeroIcon = latestProgress === 100
+  const heroTitle = showLindseyHero ? 'Hey gorgeous' : heroState.title
+  const heroSubtitle = showLindseyHero
+    ? 'I love you so much'
+    : heroState.subtitle
+  const heroIcon = showLindseyHero ? (
+    <TbHeartFilled size={48} color="#d32f2f" />
+  ) : showCatInHeroIcon ? (
+    <Avatar
+      alt={isNutmegUser ? 'Nutmeg cat icon' : 'Ace cat icon'}
+      src={catSvgSrc}
+      sx={{
+        width: 78,
+        height: 78,
+        bgcolor: 'transparent',
+        position: 'absolute',
+        top: '42%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+      }}
+    />
+  ) : (
+    <HeroIcon size={36} />
+  )
 
   useEffect(() => {
     const faviconLink =
@@ -205,16 +227,61 @@ export default function HomeView() {
   return (
     <Container maxWidth="sm" sx={{ pt: 3, pb: 2 }}>
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <Stack spacing={2.5}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5,
+            }}
+          >
+            <Box sx={{ flex: 1 }}>
+              <Skeleton variant="text" width="52%" height={36} />
+              <Skeleton variant="text" width="78%" height={22} />
+            </Box>
+            <Skeleton variant="circular" width={50} height={50} />
+          </Box>
+          <HeroCard
+            loading
+            to=""
+            title=""
+            subtitle=""
+            icon={null}
+            listColor="transparent"
+            progress={0}
+            completed={0}
+            total={0}
+            dateLabel=""
+          />
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 900, mb: 1.25 }}>
+              Lists Progress
+            </Typography>
+            <ListCardWrapper>
+              {Array.from({ length: 1 }).map((_, idx) => (
+                <ListCardWrapperItem key={`home-list-skeleton-${idx}`}>
+                  <ListCard
+                    loading
+                    listId={0}
+                    title=""
+                    listColor="transparent"
+                    progress={0}
+                    total={0}
+                    completed={0}
+                  />
+                </ListCardWrapperItem>
+              ))}
+            </ListCardWrapper>
+          </Box>
+        </Stack>
       ) : !latestList ? (
         <Box sx={{ py: 3, textAlign: 'center' }}>
           <Typography variant="h4" sx={{ mb: 1, fontWeight: 800 }}>
             {greeting}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Let&apos;s make this day productive.
+            Welcome to Goals Sync!
           </Typography>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 1 }}>
@@ -270,110 +337,17 @@ export default function HomeView() {
             </Avatar>
           </Box>
 
-          <Paper
-            component={RouterLink}
+          <HeroCard
             to={`/lists/${latestList.id}`}
-            sx={(theme) => ({
-              display: 'block',
-              p: 2,
-              borderRadius: 3,
-              textDecoration: 'none',
-              color: 'inherit',
-              bgcolor:
-                theme.palette.mode === 'dark'
-                  ? alpha(normalizeListColor(latestList.color), 0.2)
-                  : alpha(normalizeListColor(latestList.color), 0.18),
-            })}
-          >
-            <Stack spacing={2}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: 1.5,
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography
-                    variant="h4"
-                    sx={{ fontWeight: 900, lineHeight: 1.2 }}
-                  >
-                    {showLindseyHero ? 'Hey gorgeous' : heroState.title}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {showLindseyHero
-                      ? 'I love you so much'
-                      : heroState.subtitle}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={(theme) => ({
-                    width: 58,
-                    height: 58,
-                    borderRadius: '50%',
-                    display: 'grid',
-                    placeItems: 'center',
-                    position: 'relative',
-                    flexShrink: 0,
-                    bgcolor:
-                      theme.palette.mode === 'dark'
-                        ? alpha(normalizeListColor(latestList.color), 0.45)
-                        : alpha(normalizeListColor(latestList.color), 0.5),
-                  })}
-                >
-                  {showLindseyHero ? (
-                    <TbHeartFilled size={48} color="#d32f2f" />
-                  ) : showCatInHeroIcon ? (
-                    <Avatar
-                      alt={isNutmegUser ? 'Nutmeg cat icon' : 'Ace cat icon'}
-                      src={catSvgSrc}
-                      sx={{
-                        width: 78,
-                        height: 78,
-                        bgcolor: 'transparent',
-                        position: 'absolute',
-                        top: '42%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                      }}
-                    />
-                  ) : (
-                    <HeroIcon size={36} />
-                  )}
-                </Box>
-              </Box>
-              <Box sx={{ display: 'grid', gap: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {`${latestStats.completed} out of ${latestStats.total} tasks are completed`}
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={latestProgress}
-                  sx={{
-                    height: 10,
-                    borderRadius: 999,
-                    bgcolor: alpha(normalizeListColor(latestList.color), 0.3),
-                    '& .MuiLinearProgress-bar': {
-                      borderRadius: 999,
-                      bgcolor: normalizeListColor(latestList.color),
-                    },
-                  }}
-                />
-              </Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'flex-start',
-                  alignItems: 'center',
-                }}
-              >
-                <Typography variant="caption" color="text.secondary">
-                  {todayLabel}
-                </Typography>
-              </Box>
-            </Stack>
-          </Paper>
+            title={heroTitle}
+            subtitle={heroSubtitle}
+            icon={heroIcon}
+            listColor={normalizeListColor(latestList.color)}
+            progress={latestProgress}
+            completed={latestStats.completed}
+            total={latestStats.total}
+            dateLabel={todayLabel}
+          />
 
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 900, mb: 1.25 }}>

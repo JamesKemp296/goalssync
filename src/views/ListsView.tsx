@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Container,
   Dialog,
   DialogActions,
@@ -21,7 +20,9 @@ import {
 import { TbEdit, TbPin, TbPlus, TbSearch, TbTrash } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
 import ListCard from '../components/ListCard'
-import ListCardWrapper, { ListCardWrapperItem } from '../components/ListCardWrapper'
+import ListCardWrapper, {
+  ListCardWrapperItem,
+} from '../components/ListCardWrapper'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import {
@@ -288,17 +289,34 @@ export default function ListsView() {
             pb: 12,
           }}
         >
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+            All Lists
+          </Typography>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress />
+            <Box>
+              <ListCardWrapper>
+                {Array.from({ length: 1 }).map((_, idx) => (
+                  <ListCardWrapperItem key={`lists-skeleton-${idx}`}>
+                    <ListCard
+                      loading
+                      listId={0}
+                      title=""
+                      listColor="transparent"
+                      progress={0}
+                      total={0}
+                      completed={0}
+                      showMenuButton
+                    />
+                  </ListCardWrapperItem>
+                ))}
+              </ListCardWrapper>
             </Box>
           ) : (
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                All Lists
-              </Typography>
               {visibleLists.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                <Box
+                  sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}
+                >
                   <Typography>
                     {lists.length === 0
                       ? 'No lists yet. Tap + to create one.'
