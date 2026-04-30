@@ -19,9 +19,12 @@ export default function CompleteLeftChip({
     <Box
       sx={{
         px: 1,
-        py: 0.25,
+        py: 0.5,
         borderRadius: 999,
         bgcolor: isComplete ? alpha(accentColor, 0.18) : 'action.hover',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <Typography
@@ -30,6 +33,7 @@ export default function CompleteLeftChip({
           fontWeight: 700,
           fontSize: '0.55rem',
           color: isComplete ? accentColor : 'text.secondary',
+          textAlign: 'center',
         }}
       >
         {label}

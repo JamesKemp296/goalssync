@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   CardActionArea,
-  Checkbox,
   CircularProgress,
   Container,
   Dialog,
@@ -24,6 +23,7 @@ import ListCard from '../components/ListCard'
 import ListCardWrapper, {
   ListCardWrapperItem,
 } from '../components/ListCardWrapper'
+import TodoItemsList from '../components/TodoItemsList'
 import { normalizeListColor } from '../listColors'
 import { normalizeListIcon } from '../listIcons'
 import { supabase } from '../supabase'
@@ -586,38 +586,7 @@ function FriendTodosPanel({ list, todos, loading }: FriendTodosPanelProps) {
           No tasks yet.
         </Typography>
       ) : (
-        <Stack spacing={1.25}>
-          {todos.map((todo) => (
-            <Box
-              key={todo.id}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 2,
-                px: 1.25,
-                py: 0.8,
-                bgcolor: 'background.paper',
-              }}
-            >
-              <Checkbox checked={todo.is_complete} disabled />
-              <Typography
-                sx={{
-                  flex: 1,
-                  minWidth: 0,
-                  fontWeight: 600,
-                  textDecoration: todo.is_complete ? 'line-through' : 'none',
-                  color: todo.is_complete ? 'text.secondary' : 'text.primary',
-                }}
-                noWrap
-              >
-                {todo.task}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
+        <TodoItemsList todos={todos} readOnly showDelete={false} />
       )}
     </Stack>
   )

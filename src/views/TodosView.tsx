@@ -6,7 +6,7 @@ import {
   type FormEvent,
 } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Box, CircularProgress, Container, Typography } from '@mui/material'
+import { Box, CircularProgress, Container } from '@mui/material'
 import { TbCheckupList, TbList, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import TodoComposer from '../components/TodoComposer'
@@ -167,11 +167,8 @@ export default function TodosView() {
       />
       <Container
         maxWidth="sm"
-        sx={{ pt: 3, pb: 'calc(64px + env(safe-area-inset-bottom) + 4px)' }}
+        sx={{ pt: 3, pb: 'calc(24px + env(safe-area-inset-bottom))' }}
       >
-        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2.5 }}>
-          {list.title}
-        </Typography>
         <TodoComposer
           value={text}
           onChange={setText}

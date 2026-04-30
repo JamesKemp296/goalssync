@@ -1,4 +1,4 @@
-import { Box, Checkbox, IconButton, Stack, Typography } from '@mui/material'
+import { Checkbox, IconButton, Paper, Stack, Typography } from '@mui/material'
 import { TbX } from 'react-icons/tb'
 
 export type TodoListItem = {
@@ -9,20 +9,25 @@ export type TodoListItem = {
 
 type TodoItemsListProps = {
   todos: TodoListItem[]
-  onToggle: (id: number) => void
-  onRemove: (id: number) => void
+  onToggle?: (id: number) => void
+  onRemove?: (id: number) => void
+  readOnly?: boolean
+  showDelete?: boolean
 }
 
 export default function TodoItemsList({
   todos,
   onToggle,
   onRemove,
+  readOnly = false,
+  showDelete = true,
 }: TodoItemsListProps) {
   return (
     <Stack spacing={1.25}>
       {todos.map((todo) => (
-        <Box
+        <Paper
           key={todo.id}
+          elevation={1}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -37,7 +42,8 @@ export default function TodoItemsList({
         >
           <Checkbox
             checked={todo.is_complete}
-            onChange={() => onToggle(todo.id)}
+            disabled={readOnly}
+            onChange={() => onToggle?.(todo.id)}
           />
           <Typography
             sx={{
@@ -51,14 +57,16 @@ export default function TodoItemsList({
           >
             {todo.task}
           </Typography>
-          <IconButton
-            aria-label="Delete task"
-            onClick={() => onRemove(todo.id)}
-            sx={{ color: 'text.secondary' }}
-          >
-            <TbX size={20} />
-          </IconButton>
-        </Box>
+          {showDelete && (
+            <IconButton
+              aria-label="Delete task"
+              onClick={() => onRemove?.(todo.id)}
+              sx={{ color: 'text.secondary' }}
+            >
+              <TbX size={20} />
+            </IconButton>
+          )}
+        </Paper>
       ))}
       {todos.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>

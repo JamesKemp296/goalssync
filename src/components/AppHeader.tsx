@@ -73,7 +73,7 @@ export default function AppHeader({
       <Toolbar sx={{ gap: 1 }}>
         {showBack ? (
           <IconButton edge="start" onClick={handleBack} aria-label="Back">
-            <TbArrowLeft size={18} />
+            <TbArrowLeft size={24} />
           </IconButton>
         ) : (
           <Box sx={{ width: SIDE_SLOT }} />
@@ -91,7 +91,7 @@ export default function AppHeader({
         {hasMenu ? (
           <>
             <IconButton edge="end" onClick={openMenu} aria-label="More options">
-              <TbDotsVertical size={18} />
+              <TbDotsVertical size={24} />
             </IconButton>
             <Menu anchorEl={anchorEl} open={menuOpen} onClose={closeMenu}>
               {menuItems!.map((item) => (
