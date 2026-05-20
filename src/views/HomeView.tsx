@@ -54,6 +54,7 @@ export default function HomeView() {
   const [history, setHistory] = useState<ListPeriodHistoryRow[]>([])
   const [itemHistory, setItemHistory] = useState<TodoPeriodHistoryRow[]>([])
   const [badges, setBadges] = useState<BadgeRow[]>([])
+  const [showLindseyUX, setShowLindseyUX] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -214,16 +215,7 @@ export default function HomeView() {
     return `You're ${pct}% through your timed lists.`
   }, [periodOverviewItems])
 
-  const greeting = useMemo(() => {
-    if (!firstName.trim()) return 'Hey, welcome!'
-    return `Hey, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}!`
-  }, [firstName])
-  const nameInitial = (
-    firstName.trim()[0] ??
-    email.trim()[0] ??
-    '?'
-  ).toUpperCase()
-  const isNutmegUser = useMemo(() => {
+  const isLindseyUser = useMemo(() => {
     const normalizedFirstName = firstName.toLowerCase()
     const normalizedEmail = email.toLowerCase()
     return (
@@ -231,7 +223,22 @@ export default function HomeView() {
       normalizedEmail.includes('lindsey')
     )
   }, [firstName, email])
-  const catSvgSrc = isNutmegUser ? '/nutmeg.svg' : '/ace.svg'
+
+  useEffect(() => {
+    setShowLindseyUX(isLindseyUser && Math.random() < 0.2)
+  }, [isLindseyUser])
+
+  const greeting = useMemo(() => {
+    if (showLindseyUX) return 'Hey, gorgeous'
+    if (!firstName.trim()) return 'Hey, welcome!'
+    return `Hey, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}!`
+  }, [firstName, showLindseyUX])
+  const nameInitial = (
+    firstName.trim()[0] ??
+    email.trim()[0] ??
+    '?'
+  ).toUpperCase()
+  const catSvgSrc = showLindseyUX ? '/nutmeg.svg' : '/ace.svg'
 
   useEffect(() => {
     const faviconLink =
@@ -276,15 +283,18 @@ export default function HomeView() {
             <Skeleton variant="circular" width={50} height={50} />
           ) : (
             <Avatar
+              src={showLindseyUX ? '/nutmeg.svg' : undefined}
+              alt={showLindseyUX ? 'Nutmeg' : undefined}
               sx={{
                 width: 50,
                 height: 50,
-                bgcolor: 'primary.main',
+                bgcolor: showLindseyUX ? 'transparent' : 'primary.main',
                 fontWeight: 900,
                 fontSize: 28,
+                '& img': { objectFit: 'contain', p: 0.25 },
               }}
             >
-              {nameInitial}
+              {showLindseyUX ? null : nameInitial}
             </Avatar>
           )}
         </Box>
