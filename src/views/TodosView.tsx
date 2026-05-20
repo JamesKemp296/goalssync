@@ -91,12 +91,20 @@ export default function TodosView() {
     void loadTodos()
   }
 
+  const evaluateBadges = useCallback(async () => {
+    if (!supabase) return
+    const { error } = await supabase.rpc('evaluate_user_badges')
+    if (error) console.error('evaluate_user_badges failed', error)
+  }, [])
+
   const toggle = async (t: TodoRow) => {
     if (!supabase) return
+    const becameComplete = !t.is_complete
     await supabase
       .from('todos')
-      .update({ is_complete: !t.is_complete })
+      .update({ is_complete: becameComplete })
       .eq('id', t.id)
+    if (becameComplete) void evaluateBadges()
     void loadTodos()
   }
 
@@ -109,6 +117,7 @@ export default function TodosView() {
   const markAll = async (is_complete: boolean) => {
     if (!supabase || !Number.isFinite(listId)) return
     await supabase.from('todos').update({ is_complete }).eq('list_id', listId)
+    if (is_complete) void evaluateBadges()
     void loadTodos()
   }
 

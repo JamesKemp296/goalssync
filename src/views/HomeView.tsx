@@ -10,75 +10,50 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { TbHeartFilled, TbPlus } from 'react-icons/tb'
-import { getListIconComponent } from '../listIcons'
-import ListCard from '../components/ListCard'
-import ListCardWrapper, {
-  ListCardWrapperItem,
-} from '../components/ListCardWrapper'
-import { HeroCard } from '../components/HeroCard'
-import { normalizeListColor } from '../listColors'
+import { TbPlus } from 'react-icons/tb'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
+import { normalizeTimeFrame } from '../timeFrames'
+import PeriodOverviewCard, {
+  type PeriodOverviewItem,
+} from '../components/PeriodOverviewCard'
+import BadgesRail from '../components/BadgesRail'
+import HeatmapCard from '../components/HeatmapCard'
+import BestWorstInsights from '../components/BestWorstInsights'
+import RollupStats from '../components/RollupStats'
 
 type ListRow = Database['public']['Tables']['lists']['Row']
-type TodoStatRow = Pick<
+type TodoRow = Pick<
   Database['public']['Tables']['todos']['Row'],
-  'list_id' | 'is_complete'
+  'list_id' | 'is_complete' | 'task' | 'id'
 >
-type ListStats = { total: number; completed: number }
+type ListPeriodHistoryRow =
+  Database['public']['Tables']['list_period_history']['Row']
+type TodoPeriodHistoryRow =
+  Database['public']['Tables']['todo_period_history']['Row']
+type BadgeRow = Pick<
+  Database['public']['Tables']['badges_awarded']['Row'],
+  'badge_key' | 'awarded_at' | 'metadata'
+>
 
-type HeroCopy = {
-  title: string
-  subtitle: string
-  iconKey: string
-}
-
-const HERO_STATES: HeroCopy[] = [
-  {
-    title: 'Start strong',
-    subtitle: 'Pick one task and get momentum.',
-    iconKey: 'list',
-  },
-  {
-    title: 'Nice progress',
-    subtitle: 'You are moving through this list.',
-    iconKey: 'fitness',
-  },
-  {
-    title: 'More than halfway',
-    subtitle: 'You are on pace. Keep going.',
-    iconKey: 'work',
-  },
-  {
-    title: 'Almost there',
-    subtitle: 'Only a few tasks left.',
-    iconKey: 'events',
-  },
-  {
-    title: 'All done!',
-    subtitle: 'Everything in this list is complete.',
-    iconKey: 'personal',
-  },
-]
-
-const getHeroState = (progress: number): HeroCopy => {
-  if (progress <= 20) return HERO_STATES[0]
-  if (progress <= 50) return HERO_STATES[1]
-  if (progress <= 80) return HERO_STATES[2]
-  if (progress < 100) return HERO_STATES[3]
-  return HERO_STATES[4]
+function toLocalDateKey(iso: string): string {
+  const d = new Date(iso)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default function HomeView() {
-  const [displayLists, setDisplayLists] = useState<ListRow[]>([])
-  const [hasPinnedLists, setHasPinnedLists] = useState(false)
-  const [statsByListId, setStatsByListId] = useState<Record<number, ListStats>>(
-    {},
-  )
   const [loading, setLoading] = useState(true)
   const [firstName, setFirstName] = useState('there')
   const [email, setEmail] = useState('')
+
+  const [lists, setLists] = useState<ListRow[]>([])
+  const [todos, setTodos] = useState<TodoRow[]>([])
+  const [history, setHistory] = useState<ListPeriodHistoryRow[]>([])
+  const [itemHistory, setItemHistory] = useState<TodoPeriodHistoryRow[]>([])
+  const [badges, setBadges] = useState<BadgeRow[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -103,72 +78,142 @@ export default function HomeView() {
         return
       }
 
-      const { data: listsData } = await supabase
-        .from('lists')
-        .select('*')
-        .eq('user_id', myUserId)
-        .order('created_at', { ascending: false })
-        .limit(100)
+      // Catch-up badge evaluation in case a previous client-side RPC failed
+      // (e.g. user toggled before the migration deployed). Errors logged only.
+      const { error: badgeError } = await supabase.rpc('evaluate_user_badges')
+      if (badgeError) console.error('evaluate_user_badges failed', badgeError)
       if (cancelled) return
-      const allLists = (listsData as ListRow[] | null) ?? []
-      const pinnedLists = [...allLists]
-        .filter((row) => Boolean(row.pinned_at))
-        .sort(
-          (a, b) =>
-            +new Date(b.pinned_at ?? b.created_at) -
-            +new Date(a.pinned_at ?? a.created_at),
-        )
-      const usingPinned = pinnedLists.length > 0
-      const selectedLists = usingPinned
-        ? pinnedLists.slice(0, 4)
-        : allLists.slice(0, 4)
-      setHasPinnedLists(usingPinned)
-      setDisplayLists(selectedLists)
 
-      if (selectedLists.length > 0) {
-        const listIds = selectedLists.map((row) => row.id)
-        const { data: todoData } = await supabase
-          .from('todos')
-          .select('list_id,is_complete')
-          .in('list_id', listIds)
-        if (cancelled) return
+      const [listsRes, historyRes, badgesRes] = await Promise.all([
+        supabase
+          .from('lists')
+          .select('*')
+          .eq('user_id', myUserId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('list_period_history')
+          .select('*')
+          .eq('user_id', myUserId)
+          .order('period_end', { ascending: false })
+          .limit(500),
+        supabase
+          .from('badges_awarded')
+          .select('badge_key, awarded_at, metadata')
+          .eq('user_id', myUserId),
+      ])
+      if (cancelled) return
 
-        const stats: Record<number, ListStats> = {}
-        for (const todo of (todoData as TodoStatRow[] | null) ?? []) {
-          const current = stats[todo.list_id] ?? { total: 0, completed: 0 }
-          current.total += 1
-          if (todo.is_complete) current.completed += 1
-          stats[todo.list_id] = current
-        }
-        setStatsByListId(stats)
-      } else {
-        setStatsByListId({})
-      }
+      const allLists = (listsRes.data as ListRow[] | null) ?? []
+      const historyRows =
+        (historyRes.data as ListPeriodHistoryRow[] | null) ?? []
+      const badgeRows = (badgesRes.data as BadgeRow[] | null) ?? []
 
-      if (!cancelled) setLoading(false)
+      const listIds = allLists.map((l) => l.id)
+      const [todosRes, itemHistRes] = await Promise.all([
+        listIds.length > 0
+          ? supabase
+              .from('todos')
+              .select('list_id, is_complete, task, id')
+              .in('list_id', listIds)
+          : Promise.resolve({ data: [] as TodoRow[] }),
+        historyRows.length > 0
+          ? supabase
+              .from('todo_period_history')
+              .select('*')
+              .in(
+                'list_period_history_id',
+                historyRows.slice(0, 200).map((h) => h.id),
+              )
+          : Promise.resolve({ data: [] as TodoPeriodHistoryRow[] }),
+      ])
+      if (cancelled) return
+
+      setLists(allLists)
+      setTodos((todosRes.data as TodoRow[] | null) ?? [])
+      setHistory(historyRows)
+      setItemHistory(
+        (itemHistRes.data as TodoPeriodHistoryRow[] | null) ?? [],
+      )
+      setBadges(badgeRows)
+      setLoading(false)
     })()
     return () => {
       cancelled = true
     }
   }, [])
 
-  const latestList = displayLists[0] ?? null
-  const latestStats = latestList
-    ? (statsByListId[latestList.id] ?? { total: 0, completed: 0 })
-    : { total: 0, completed: 0 }
-  const latestProgress =
-    latestStats.total === 0
-      ? 0
-      : Math.round((latestStats.completed / latestStats.total) * 100)
-  const latestUndone = Math.max(0, latestStats.total - latestStats.completed)
-  const heroState = getHeroState(latestProgress)
-  const HeroIcon = getListIconComponent(heroState.iconKey)
+  const periodOverviewItems = useMemo<PeriodOverviewItem[]>(() => {
+    const todosByList = new Map<number, TodoRow[]>()
+    for (const t of todos) {
+      const arr = todosByList.get(t.list_id) ?? []
+      arr.push(t)
+      todosByList.set(t.list_id, arr)
+    }
+    return lists
+      .filter((l) => normalizeTimeFrame(l.time_frame) !== 'none')
+      .map((list) => {
+        const ts = todosByList.get(list.id) ?? []
+        const completed = ts.filter((t) => t.is_complete).length
+        return { list, total: ts.length, completed }
+      })
+  }, [lists, todos])
 
-  const todayLabel = new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date())
+  const completionsByDay = useMemo<Record<string, number>>(() => {
+    const acc: Record<string, number> = {}
+    // Closed periods from history
+    for (const h of history) {
+      if (h.time_frame !== 'daily') continue
+      const key = toLocalDateKey(h.period_start)
+      acc[key] = (acc[key] ?? 0) + h.completed_count
+    }
+    // Live (current open period) completions from daily lists — these won't
+    // appear in history until the nightly reset runs.
+    const dailyListIds = new Set(
+      lists
+        .filter((l) => normalizeTimeFrame(l.time_frame) === 'daily')
+        .map((l) => l.id),
+    )
+    const todayKey = toLocalDateKey(new Date().toISOString())
+    for (const t of todos) {
+      if (t.is_complete && dailyListIds.has(t.list_id)) {
+        acc[todayKey] = (acc[todayKey] ?? 0) + 1
+      }
+    }
+    return acc
+  }, [history, lists, todos])
+
+  const liveCompletedCount = useMemo(
+    () => todos.filter((t) => t.is_complete).length,
+    [todos],
+  )
+
+  const listTitleById = useMemo(
+    () =>
+      Object.fromEntries(
+        lists.map((l) => [l.id, l.title?.trim() || `List #${l.id}`]),
+      ),
+    [lists],
+  )
+
+  const heroSubtitle = useMemo(() => {
+    if (periodOverviewItems.length === 0) {
+      return 'Set a list cadence to start earning badges.'
+    }
+    const totalTodos = periodOverviewItems.reduce(
+      (acc, it) => acc + it.total,
+      0,
+    )
+    const totalDone = periodOverviewItems.reduce(
+      (acc, it) => acc + it.completed,
+      0,
+    )
+    if (totalTodos === 0) {
+      return 'No tasks queued in your timed lists yet.'
+    }
+    const pct = Math.round((totalDone / totalTodos) * 100)
+    return `You're ${pct}% through your timed lists.`
+  }, [periodOverviewItems])
+
   const greeting = useMemo(() => {
     if (!firstName.trim()) return 'Hey, welcome!'
     return `Hey, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}!`
@@ -186,36 +231,7 @@ export default function HomeView() {
       normalizedEmail.includes('lindsey')
     )
   }, [firstName, email])
-  const isLindsey = firstName.trim().toLowerCase() === 'lindsey'
-  const showLindseyHero = useMemo(
-    () => isLindsey && Math.random() < 0.3,
-    [isLindsey, latestList?.id],
-  )
   const catSvgSrc = isNutmegUser ? '/nutmeg.svg' : '/ace.svg'
-  const showCatInHeroIcon = latestProgress === 100
-  const heroTitle = showLindseyHero ? 'Hey gorgeous' : heroState.title
-  const heroSubtitle = showLindseyHero
-    ? 'I love you so much'
-    : heroState.subtitle
-  const heroIcon = showLindseyHero ? (
-    <TbHeartFilled size={48} color="#d32f2f" />
-  ) : showCatInHeroIcon ? (
-    <Avatar
-      alt={isNutmegUser ? 'Nutmeg cat icon' : 'Ace cat icon'}
-      src={catSvgSrc}
-      sx={{
-        width: 78,
-        height: 78,
-        bgcolor: 'transparent',
-        position: 'absolute',
-        top: '42%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-      }}
-    />
-  ) : (
-    <HeroIcon size={36} />
-  )
 
   useEffect(() => {
     const faviconLink =
@@ -224,106 +240,41 @@ export default function HomeView() {
     faviconLink.href = catSvgSrc
   }, [catSvgSrc])
 
+  const hasAnyList = lists.length > 0
+  const hasTimedList = periodOverviewItems.length > 0
+
   return (
-    <Container maxWidth="sm" sx={{ pt: 3, pb: 2 }}>
-      {loading ? (
-        <Stack spacing={2.5}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1.5,
-            }}
-          >
-            <Box sx={{ flex: 1 }}>
-              <Skeleton variant="text" width="52%" height={36} />
-              <Skeleton variant="text" width="78%" height={22} />
-            </Box>
+    <Container maxWidth="sm" sx={{ pt: 3, pb: 10 }}>
+      <Stack spacing={2.5}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            {loading ? (
+              <>
+                <Skeleton variant="text" width="60%" height={36} />
+                <Skeleton variant="text" width="80%" height={22} />
+              </>
+            ) : (
+              <>
+                <Typography
+                  variant="h4"
+                  sx={{ fontWeight: 900, lineHeight: 1.15 }}
+                >
+                  {greeting}
+                </Typography>
+                <Typography color="text.secondary">{heroSubtitle}</Typography>
+              </>
+            )}
+          </Box>
+          {loading ? (
             <Skeleton variant="circular" width={50} height={50} />
-          </Box>
-          <HeroCard
-            loading
-            to=""
-            title=""
-            subtitle=""
-            icon={null}
-            listColor="transparent"
-            progress={0}
-            completed={0}
-            total={0}
-            dateLabel=""
-          />
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 1.25 }}>
-              Lists Progress
-            </Typography>
-            <ListCardWrapper>
-              {Array.from({ length: 1 }).map((_, idx) => (
-                <ListCardWrapperItem key={`home-list-skeleton-${idx}`}>
-                  <ListCard
-                    loading
-                    listId={0}
-                    title=""
-                    listColor="transparent"
-                    progress={0}
-                    total={0}
-                    completed={0}
-                  />
-                </ListCardWrapperItem>
-              ))}
-            </ListCardWrapper>
-          </Box>
-        </Stack>
-      ) : !latestList ? (
-        <Box sx={{ py: 3, textAlign: 'center' }}>
-          <Typography variant="h4" sx={{ mb: 1, fontWeight: 800 }}>
-            {greeting}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Welcome to Goals Sync!
-          </Typography>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              No lists yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Create your first list to get started.
-            </Typography>
-            <Button
-              component={RouterLink}
-              to="/lists"
-              variant="contained"
-              color="primary"
-              startIcon={<TbPlus size={18} />}
-            >
-              New list
-            </Button>
-          </Paper>
-        </Box>
-      ) : (
-        <Stack spacing={2.5}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1.5,
-            }}
-          >
-            <Box>
-              <Typography
-                variant="h4"
-                sx={{ fontWeight: 900, lineHeight: 1.15 }}
-              >
-                {greeting}
-              </Typography>
-              <Typography color="text.secondary">
-                {`You have ${latestUndone} ${
-                  latestUndone === 1 ? 'task' : 'tasks'
-                } left in ${latestList.title}`}
-              </Typography>
-            </Box>
+          ) : (
             <Avatar
               sx={{
                 width: 50,
@@ -335,53 +286,79 @@ export default function HomeView() {
             >
               {nameInitial}
             </Avatar>
-          </Box>
+          )}
+        </Box>
 
-          <HeroCard
-            to={`/lists/${latestList.id}`}
-            title={heroTitle}
-            subtitle={heroSubtitle}
-            icon={heroIcon}
-            listColor={normalizeListColor(latestList.color)}
-            progress={latestProgress}
-            completed={latestStats.completed}
-            total={latestStats.total}
-            dateLabel={todayLabel}
-          />
-
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 1.25 }}>
-              {hasPinnedLists ? 'Pinned' : 'Lists Progress'}
+        {!loading && !hasAnyList ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              No lists yet
             </Typography>
-            <ListCardWrapper>
-              {displayLists.map((entry) => {
-                const stats = statsByListId[entry.id] ?? {
-                  total: 0,
-                  completed: 0,
-                }
-                const progress =
-                  stats.total === 0
-                    ? 0
-                    : Math.round((stats.completed / stats.total) * 100)
-                const listColor = normalizeListColor(entry.color)
-                return (
-                  <ListCardWrapperItem key={entry.id}>
-                    <ListCard
-                      listId={entry.id}
-                      title={entry.title}
-                      listColor={listColor}
-                      progress={progress}
-                      total={stats.total}
-                      completed={stats.completed}
-                      iconKey={entry.icon}
-                    />
-                  </ListCardWrapperItem>
-                )
-              })}
-            </ListCardWrapper>
-          </Box>
-        </Stack>
-      )}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Create your first list and pick a cadence to start tracking
+              streaks, badges, and progress.
+            </Typography>
+            <Button
+              component={RouterLink}
+              to="/lists"
+              variant="contained"
+              color="primary"
+              startIcon={<TbPlus size={18} />}
+            >
+              New list
+            </Button>
+          </Paper>
+        ) : (
+          <>
+            <PeriodOverviewCard
+              items={periodOverviewItems}
+              loading={loading}
+            />
+
+            <HeatmapCard
+              completionsByDay={completionsByDay}
+              loading={loading}
+            />
+
+            <BadgesRail
+              awarded={badges}
+              listTitleById={listTitleById}
+              loading={loading}
+            />
+
+            <BestWorstInsights
+              lists={lists}
+              history={history}
+              itemHistory={itemHistory}
+              loading={loading}
+            />
+
+            <RollupStats
+              history={history}
+              liveCompletedCount={liveCompletedCount}
+              loading={loading}
+            />
+
+            {!loading && hasAnyList && !hasTimedList ? (
+              <Paper sx={{ p: 2.5, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  None of your lists have a cadence yet. Add daily, weekly, or
+                  monthly cadence to a list to start earning badges and
+                  streaks.
+                </Typography>
+                <Button
+                  component={RouterLink}
+                  to="/lists"
+                  variant="outlined"
+                  size="small"
+                >
+                  Manage lists
+                </Button>
+              </Paper>
+            ) : null}
+          </>
+        )}
+      </Stack>
     </Container>
   )
 }

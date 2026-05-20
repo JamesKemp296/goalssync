@@ -23,6 +23,49 @@ export default function App() {
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!supabase || !session?.user) return
+    const userId = session.user.id
+    const browserTz =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    void (async () => {
+      const { data } = await supabase!
+        .from('profiles')
+        .select('timezone')
+        .eq('id', userId)
+        .maybeSingle()
+      const current = (data as { timezone?: string } | null)?.timezone
+      if (current === browserTz) return
+      const { error: updateProfileError } = await supabase!
+        .from('profiles')
+        .update({ timezone: browserTz })
+        .eq('id', userId)
+      if (updateProfileError) return
+
+      // Existing timed lists may have been anchored to UTC before timezone sync.
+      // Recompute each list's next reset moment using server-side timezone logic.
+      const { data: timedLists } = await supabase!
+        .from('lists')
+        .select('id,time_frame')
+        .eq('user_id', userId)
+        .neq('time_frame', 'none')
+      const rows =
+        (timedLists as { id: number; time_frame: string }[] | null) ?? []
+      await Promise.all(
+        rows.map(async (row) => {
+          const { data: nextResetAt } = await supabase!.rpc(
+            'compute_next_reset_at',
+            { p_list_id: row.id },
+          )
+          await supabase!
+            .from('lists')
+            .update({ next_reset_at: nextResetAt })
+            .eq('id', row.id)
+        }),
+      )
+    })()
+  }, [session?.user?.id])
+
   if (supabaseConfigError) {
     return (
       <Container maxWidth="sm" sx={{ mt: 8 }}>

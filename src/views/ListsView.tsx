@@ -35,11 +35,17 @@ import {
   LIST_PALETTE,
   normalizeListColor,
 } from '../listColors'
+import {
+  TIME_FRAMES,
+  TIME_FRAME_LABELS,
+  computeNextResetAt,
+  normalizeTimeFrame,
+} from '../timeFrames'
+import type { ListTimeFrame } from '../database.types'
 
 type ListRow = Database['public']['Tables']['lists']['Row']
 type SortKey = 'recent' | 'oldest' | 'az'
 type ListStats = { total: number; completed: number }
-const MAX_PINNED_LISTS = 4
 
 export default function ListsView() {
   const [lists, setLists] = useState<ListRow[]>([])
@@ -58,6 +64,9 @@ export default function ListsView() {
   const [title, setTitle] = useState('')
   const [iconKey, setIconKey] = useState<string>(DEFAULT_LIST_ICON)
   const [colorHex, setColorHex] = useState<string>(DEFAULT_LIST_COLOR)
+  const [timeFrame, setTimeFrame] = useState<ListTimeFrame>('none')
+  const [editingPrevTimeFrame, setEditingPrevTimeFrame] =
+    useState<ListTimeFrame>('none')
   const [statsByListId, setStatsByListId] = useState<Record<number, ListStats>>(
     {},
   )
@@ -141,11 +150,6 @@ export default function ListsView() {
     return sorted
   }, [lists, search, sort, pinnedOnly])
 
-  const pinnedCount = useMemo(
-    () => lists.filter((l) => Boolean(l.pinned_at)).length,
-    [lists],
-  )
-  const canPinMore = pinnedCount < MAX_PINNED_LISTS
   const toggleSort = (nextSort: SortKey) => {
     setSort((currentSort) => (currentSort === nextSort ? null : nextSort))
   }
@@ -156,6 +160,8 @@ export default function ListsView() {
     setTitle('')
     setIconKey(DEFAULT_LIST_ICON)
     setColorHex(DEFAULT_LIST_COLOR)
+    setTimeFrame('none')
+    setEditingPrevTimeFrame('none')
     setEditorOpen(true)
   }
 
@@ -166,6 +172,9 @@ export default function ListsView() {
     setTitle(list.title)
     setIconKey(normalizeListIcon(list.icon))
     setColorHex(normalizeListColor(list.color))
+    const tf = normalizeTimeFrame(list.time_frame)
+    setTimeFrame(tf)
+    setEditingPrevTimeFrame(tf)
     setEditorOpen(true)
   }
 
@@ -180,15 +189,33 @@ export default function ListsView() {
     const nextTitle = title.trim() || 'Untitled list'
     const nextIcon = normalizeListIcon(iconKey)
     const hex = normalizeListColor(colorHex)
+    const nextTimeFrame = normalizeTimeFrame(timeFrame)
+    const now = new Date()
+    const nextResetAt = computeNextResetAt(nextTimeFrame, now)
+    const cadenceChanged = nextTimeFrame !== editingPrevTimeFrame
     if (editorMode === 'create') {
-      await supabase
-        .from('lists')
-        .insert({ title: nextTitle, icon: nextIcon, color: hex })
+      await supabase.from('lists').insert({
+        title: nextTitle,
+        icon: nextIcon,
+        color: hex,
+        time_frame: nextTimeFrame,
+        current_period_started_at:
+          nextTimeFrame === 'none' ? null : now.toISOString(),
+        next_reset_at: nextResetAt ? nextResetAt.toISOString() : null,
+      })
     } else if (editingId != null) {
-      await supabase
-        .from('lists')
-        .update({ title: nextTitle, icon: nextIcon, color: hex })
-        .eq('id', editingId)
+      const updates: Record<string, unknown> = {
+        title: nextTitle,
+        icon: nextIcon,
+        color: hex,
+        time_frame: nextTimeFrame,
+      }
+      if (cadenceChanged) {
+        updates.current_period_started_at =
+          nextTimeFrame === 'none' ? null : now.toISOString()
+        updates.next_reset_at = nextResetAt ? nextResetAt.toISOString() : null
+      }
+      await supabase.from('lists').update(updates).eq('id', editingId)
     }
     closeEditor()
     void load()
@@ -204,11 +231,19 @@ export default function ListsView() {
   const togglePin = async (row: ListRow) => {
     if (!supabase) return
     const isPinned = Boolean(row.pinned_at)
-    if (!isPinned && !canPinMore) return
-    await supabase
-      .from('lists')
-      .update({ pinned_at: isPinned ? null : new Date().toISOString() })
-      .eq('id', row.id)
+    if (isPinned) {
+      await supabase.from('lists').update({ pinned_at: null }).eq('id', row.id)
+    } else {
+      await supabase
+        .from('lists')
+        .update({ pinned_at: null })
+        .eq('user_id', row.user_id)
+        .neq('id', row.id)
+      await supabase
+        .from('lists')
+        .update({ pinned_at: new Date().toISOString() })
+        .eq('id', row.id)
+    }
     setMenuFor(null)
     void load()
   }
@@ -321,9 +356,7 @@ export default function ListsView() {
                     {lists.length === 0
                       ? 'No lists yet. Tap + to create one.'
                       : pinnedOnly
-                        ? pinnedCount === 0
-                          ? 'No pinned lists yet.'
-                          : 'No pinned lists match your search.'
+                        ? 'No pinned list matches your search.'
                         : 'No lists match your search.'}
                   </Typography>
                 </Box>
@@ -352,6 +385,7 @@ export default function ListsView() {
                           iconKey={list.icon}
                           isPinned={Boolean(list.pinned_at)}
                           showMenuButton
+                          timeFrame={normalizeTimeFrame(list.time_frame)}
                           onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
                         />
                       </ListCardWrapperItem>
@@ -376,7 +410,6 @@ export default function ListsView() {
           <ListItemText>Edit list</ListItemText>
         </MenuItem>
         <MenuItem
-          disabled={!menuForList?.pinned_at && !canPinMore}
           onClick={() => menuForList && void togglePin(menuForList)}
         >
           <ListItemIcon>
@@ -535,6 +568,41 @@ export default function ListsView() {
                 )
               })}
             </Box>
+
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ mt: 2, display: 'block' }}
+            >
+              Cadence
+            </Typography>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 1 }}
+            >
+              {TIME_FRAMES.map((tf) => (
+                <Chip
+                  key={tf}
+                  label={TIME_FRAME_LABELS[tf]}
+                  color={timeFrame === tf ? 'primary' : 'default'}
+                  onClick={() => setTimeFrame(tf)}
+                />
+              ))}
+            </Stack>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.75, display: 'block' }}
+            >
+              {timeFrame === 'none'
+                ? "This list never resets. It won't contribute to streaks or badges."
+                : timeFrame === 'daily'
+                  ? 'Resets every day at local midnight.'
+                  : timeFrame === 'weekly'
+                    ? 'Resets every Monday at local midnight.'
+                    : 'Resets on the 1st of each month.'}
+            </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={closeEditor}>Cancel</Button>

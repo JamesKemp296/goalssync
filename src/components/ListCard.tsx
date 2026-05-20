@@ -8,9 +8,11 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { TbDotsVertical, TbPin } from 'react-icons/tb'
+import { alpha } from '@mui/material/styles'
+import { TbDotsVertical, TbPin, TbRefresh } from 'react-icons/tb'
 import { getListIconComponent, normalizeListIcon } from '../listIcons'
 import CompleteLeftChip from './CompleteLeftChip'
+import { TIME_FRAME_SHORT, type ListTimeFrame } from '../timeFrames'
 
 type ListCardProps = {
   listId: number
@@ -24,6 +26,7 @@ type ListCardProps = {
   showMenuButton?: boolean
   onOpenMenu?: (el: HTMLElement) => void
   loading?: boolean
+  timeFrame?: ListTimeFrame
 }
 
 const LIST_CARD_CONTENT_HEIGHT = 174
@@ -40,9 +43,11 @@ export default function ListCard({
   showMenuButton = false,
   onOpenMenu,
   loading = false,
+  timeFrame,
 }: ListCardProps) {
   const ListIcon = getListIconComponent(normalizeListIcon(iconKey))
   const left = Math.max(0, total - completed)
+  const showCadence = !!timeFrame && timeFrame !== 'none' && !loading
   const cardBody = (
     <Stack spacing={1.2}>
       <Box
@@ -129,9 +134,33 @@ export default function ListCard({
       {loading ? (
         <Skeleton variant="rounded" width="40%" height={20} />
       ) : (
-        <Typography variant="body2" color="text.secondary">
-          {`${total} ${total === 1 ? 'task' : 'tasks'}`}
-        </Typography>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            {`${total} ${total === 1 ? 'task' : 'tasks'}`}
+          </Typography>
+          {showCadence ? (
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.4,
+                px: 0.75,
+                py: 0.15,
+                borderRadius: 999,
+                bgcolor: alpha(listColor, 0.22),
+                color: listColor,
+              }}
+            >
+              <TbRefresh size={11} />
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, fontSize: '0.6rem' }}
+              >
+                {TIME_FRAME_SHORT[timeFrame!]}
+              </Typography>
+            </Box>
+          ) : null}
+        </Stack>
       )}
 
       {loading ? (
