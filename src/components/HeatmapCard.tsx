@@ -72,6 +72,80 @@ function buildMonth(
   return { label, weeks }
 }
 
+function MonthGridSkeleton({
+  label,
+  weekCount,
+}: {
+  label: string
+  weekCount: number
+}) {
+  return (
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 800,
+          display: 'block',
+          mb: 0.75,
+          textAlign: 'center',
+          fontSize: '0.7rem',
+        }}
+      >
+        {label}
+      </Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: 0.5,
+          mb: 0.5,
+        }}
+      >
+        {DOW_LABELS.map((d) => (
+          <Typography
+            key={d}
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              fontSize: '0.55rem',
+              textAlign: 'center',
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {d}
+          </Typography>
+        ))}
+      </Box>
+      <Stack spacing={0.5}>
+        {Array.from({ length: weekCount }).map((_, wIdx) => (
+          <Box
+            key={`skel-week-${wIdx}`}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              gap: 0.5,
+            }}
+          >
+            {Array.from({ length: 7 }).map((_, cIdx) => (
+              <Box
+                key={`skel-cell-${wIdx}-${cIdx}`}
+                sx={{ aspectRatio: '1', minWidth: 0 }}
+              >
+                <Skeleton
+                  variant="rounded"
+                  animation="wave"
+                  sx={{ width: '100%', height: '100%', borderRadius: 0.5 }}
+                />
+              </Box>
+            ))}
+          </Box>
+        ))}
+      </Stack>
+    </Box>
+  )
+}
+
 function MonthGrid({
   label,
   weeks,
@@ -235,24 +309,53 @@ export default function HeatmapCard({
           )}
         </Box>
 
-        {loading ? (
-          <Skeleton variant="rounded" height={160} />
-        ) : (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <MonthGrid
-              label={lastMonth.label}
-              weeks={lastMonth.weeks}
-              max={max}
-            />
-            <MonthGrid
-              label={currentMonth.label}
-              weeks={currentMonth.weeks}
-              max={max}
-            />
-          </Box>
-        )}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {loading ? (
+            <>
+              <MonthGridSkeleton
+                label={lastMonth.label}
+                weekCount={lastMonth.weeks.length}
+              />
+              <MonthGridSkeleton
+                label={currentMonth.label}
+                weekCount={currentMonth.weeks.length}
+              />
+            </>
+          ) : (
+            <>
+              <MonthGrid
+                label={lastMonth.label}
+                weeks={lastMonth.weeks}
+                max={max}
+              />
+              <MonthGrid
+                label={currentMonth.label}
+                weeks={currentMonth.weeks}
+                max={max}
+              />
+            </>
+          )}
+        </Box>
 
-        {!loading ? (
+        {loading ? (
+          <Stack
+            direction="row"
+            spacing={0.75}
+            sx={{ alignItems: 'center', justifyContent: 'flex-end' }}
+          >
+            <Skeleton variant="text" width={24} height={14} />
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton
+                key={`legend-skel-${i}`}
+                variant="rounded"
+                width={12}
+                height={12}
+                sx={{ borderRadius: 0.5 }}
+              />
+            ))}
+            <Skeleton variant="text" width={28} height={14} />
+          </Stack>
+        ) : (
           <Stack
             direction="row"
             spacing={0.75}
@@ -279,7 +382,7 @@ export default function HeatmapCard({
               More
             </Typography>
           </Stack>
-        ) : null}
+        )}
       </Stack>
     </Paper>
   )

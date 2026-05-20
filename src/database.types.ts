@@ -56,6 +56,7 @@ export interface Database {
           list_id: number
           task: string
           is_complete: boolean
+          completed_at: string | null
           created_at: string
         }
         Insert: {
@@ -63,6 +64,7 @@ export interface Database {
           list_id: number
           task: string
           is_complete?: boolean
+          completed_at?: string | null
           created_at?: string
         }
         Update: {
@@ -70,6 +72,7 @@ export interface Database {
           list_id?: number
           task?: string
           is_complete?: boolean
+          completed_at?: string | null
           created_at?: string
         }
         Relationships: []

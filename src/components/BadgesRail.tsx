@@ -147,12 +147,12 @@ export default function BadgesRail({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
             gap: 1.25,
           }}
         >
           {loading
-            ? Array.from({ length: 16 }).map((_, idx) => (
+            ? Array.from({ length: 18 }).map((_, idx) => (
                 <Skeleton
                   key={`badge-skel-${idx}`}
                   variant="rounded"

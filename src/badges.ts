@@ -36,6 +36,7 @@ export type BadgeAwardMetadata = {
   rate?: number
   streak?: number
   count?: number
+  total_count?: number
   period_end?: string
 }
 
@@ -102,6 +103,22 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     howToEarn:
       'Finish every task in a weekly list for 8 separate weeks across your weekly lists.',
     Icon: TbTarget,
+  },
+  {
+    keyPrefix: 'weekly_big_five',
+    kind: 'unique',
+    title: 'Weekly Big Five',
+    howToEarn:
+      'Complete a weekly list with 5 or more items in a single weekly period.',
+    Icon: TbCalendarCheck,
+  },
+  {
+    keyPrefix: 'monthly_big_eight',
+    kind: 'unique',
+    title: 'Monthly Big Eight',
+    howToEarn:
+      'Complete a monthly list with 8 or more items in a single monthly period.',
+    Icon: TbMedal,
   },
   {
     keyPrefix: 'weekly_streak_3',
@@ -388,6 +405,20 @@ export function getBadgeDetailText(
     case 'weekly_eight':
       return {
         body: `You have had ${meta.count ?? 8} perfect weeks on your weekly lists.`,
+        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+      }
+    case 'weekly_big_five':
+      return {
+        body: listName
+          ? `You completed “${listName}” with ${meta.total_count ?? 5}+ items in one week.`
+          : `You completed a weekly list with ${meta.total_count ?? 5}+ items in one week.`,
+        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+      }
+    case 'monthly_big_eight':
+      return {
+        body: listName
+          ? `You completed “${listName}” with ${meta.total_count ?? 8}+ items in one month.`
+          : `You completed a monthly list with ${meta.total_count ?? 8}+ items in one month.`,
         footnote: dateStr ? `Earned ${dateStr}` : undefined,
       }
     default:

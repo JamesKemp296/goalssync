@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
   Box,
+  Button,
   ButtonBase,
   LinearProgress,
   Paper,
@@ -31,42 +32,61 @@ export type PeriodOverviewItem = {
 
 type PeriodOverviewCardProps = {
   items: PeriodOverviewItem[]
+  totalListCount: number
   loading?: boolean
 }
 
 const TABS: { key: ListTimeFrame; label: string; emptyCopy: string }[] = [
   {
     key: 'daily',
-    label: 'Today',
+    label: 'Daily',
     emptyCopy: 'No daily lists yet. Add one to start a streak.',
   },
   {
     key: 'weekly',
-    label: 'This week',
+    label: 'Weekly',
     emptyCopy: 'No weekly lists yet.',
   },
   {
     key: 'monthly',
-    label: 'This month',
+    label: 'Monthly',
     emptyCopy: 'No monthly lists yet.',
   },
 ]
 
 export default function PeriodOverviewCard({
   items,
+  totalListCount,
   loading = false,
 }: PeriodOverviewCardProps) {
-  const [tabKey, setTabKey] = useState<ListTimeFrame>('daily')
+  const availableTabs = useMemo(() => {
+    const set = new Set<ListTimeFrame>(
+      items.map((it) => normalizeTimeFrame(it.list.time_frame)),
+    )
+    return TABS.filter((t) => set.has(t.key))
+  }, [items])
+
+  const [tabKey, setTabKey] = useState<ListTimeFrame>(
+    availableTabs[0]?.key ?? 'daily',
+  )
+
+  const activeTabKey = useMemo<ListTimeFrame>(
+    () =>
+      availableTabs.some((t) => t.key === tabKey)
+        ? tabKey
+        : (availableTabs[0]?.key ?? 'daily'),
+    [availableTabs, tabKey],
+  )
 
   const filtered = useMemo(() => {
     return items
-      .filter((it) => normalizeTimeFrame(it.list.time_frame) === tabKey)
+      .filter((it) => normalizeTimeFrame(it.list.time_frame) === activeTabKey)
       .sort((a, b) => {
         const pa = a.total === 0 ? 0 : a.completed / a.total
         const pb = b.total === 0 ? 0 : b.completed / b.total
         return pb - pa
       })
-  }, [items, tabKey])
+  }, [activeTabKey, items])
 
   const tabSummary = useMemo(() => {
     if (filtered.length === 0) return null
@@ -77,7 +97,7 @@ export default function PeriodOverviewCard({
     return { totalTodos, totalDone, pct }
   }, [filtered])
 
-  const active = TABS.find((t) => t.key === tabKey) ?? TABS[0]
+  const active = TABS.find((t) => t.key === activeTabKey) ?? TABS[0]
 
   return (
     <Paper sx={{ borderRadius: 3, p: 2 }}>
@@ -91,7 +111,7 @@ export default function PeriodOverviewCard({
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 900 }}>
-            Period overview
+            Lists overview
           </Typography>
           {loading ? (
             <Skeleton variant="rounded" width={64} height={22} />
@@ -102,16 +122,18 @@ export default function PeriodOverviewCard({
           ) : null}
         </Box>
 
-        <Tabs
-          value={tabKey}
-          onChange={(_e, v: ListTimeFrame) => setTabKey(v)}
-          variant="fullWidth"
-          sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5 } }}
-        >
-          {TABS.map((t) => (
-            <Tab key={t.key} value={t.key} label={t.label} />
-          ))}
-        </Tabs>
+        {availableTabs.length > 0 ? (
+          <Tabs
+            value={activeTabKey}
+            onChange={(_e, v: ListTimeFrame) => setTabKey(v)}
+            variant="fullWidth"
+            sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5 } }}
+          >
+            {availableTabs.map((t) => (
+              <Tab key={t.key} value={t.key} label={t.label} />
+            ))}
+          </Tabs>
+        ) : null}
 
         {loading ? (
           <Stack spacing={1}>
@@ -123,6 +145,15 @@ export default function PeriodOverviewCard({
               />
             ))}
           </Stack>
+        ) : totalListCount === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Create your first list to start tracking progress.
+            </Typography>
+            <Button component={RouterLink} to="/lists" variant="contained" size="small">
+              New list
+            </Button>
+          </Box>
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 3 }}>
             <Typography variant="body2" color="text.secondary">

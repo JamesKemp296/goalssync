@@ -102,7 +102,10 @@ export default function TodosView() {
     const becameComplete = !t.is_complete
     await supabase
       .from('todos')
-      .update({ is_complete: becameComplete })
+      .update({
+        is_complete: becameComplete,
+        completed_at: becameComplete ? new Date().toISOString() : null,
+      })
       .eq('id', t.id)
     if (becameComplete) void evaluateBadges()
     void loadTodos()
@@ -116,7 +119,13 @@ export default function TodosView() {
 
   const markAll = async (is_complete: boolean) => {
     if (!supabase || !Number.isFinite(listId)) return
-    await supabase.from('todos').update({ is_complete }).eq('list_id', listId)
+    await supabase
+      .from('todos')
+      .update({
+        is_complete,
+        completed_at: is_complete ? new Date().toISOString() : null,
+      })
+      .eq('list_id', listId)
     if (is_complete) void evaluateBadges()
     void loadTodos()
   }

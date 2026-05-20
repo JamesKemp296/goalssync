@@ -10,7 +10,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { TbPlus } from 'react-icons/tb'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import { normalizeTimeFrame } from '../timeFrames'
@@ -26,7 +25,7 @@ import { isLindseyUser, rollShowLindseyUX } from '../lindseyUx'
 type ListRow = Database['public']['Tables']['lists']['Row']
 type TodoRow = Pick<
   Database['public']['Tables']['todos']['Row'],
-  'list_id' | 'is_complete' | 'task' | 'id'
+  'list_id' | 'is_complete' | 'task' | 'id' | 'completed_at'
 >
 type ListPeriodHistoryRow =
   Database['public']['Tables']['list_period_history']['Row']
@@ -115,7 +114,7 @@ export default function HomeView() {
         listIds.length > 0
           ? supabase
               .from('todos')
-              .select('list_id, is_complete, task, id')
+              .select('list_id, is_complete, task, id, completed_at')
               .in('list_id', listIds)
           : Promise.resolve({ data: [] as TodoRow[] }),
         historyRows.length > 0
@@ -168,21 +167,16 @@ export default function HomeView() {
       const key = toLocalDateKey(h.period_start)
       acc[key] = (acc[key] ?? 0) + h.completed_count
     }
-    // Live (current open period) completions from daily lists — these won't
-    // appear in history until the nightly reset runs.
-    const dailyListIds = new Set(
-      lists
-        .filter((l) => normalizeTimeFrame(l.time_frame) === 'daily')
-        .map((l) => l.id),
-    )
-    const todayKey = toLocalDateKey(new Date().toISOString())
+    // Live completions are counted by the task's completion timestamp so
+    // partial progress (including weekly/monthly lists) shows up on the day
+    // the user actually checked the task.
     for (const t of todos) {
-      if (t.is_complete && dailyListIds.has(t.list_id)) {
-        acc[todayKey] = (acc[todayKey] ?? 0) + 1
-      }
+      if (!t.completed_at) continue
+      const key = toLocalDateKey(t.completed_at)
+      acc[key] = (acc[key] ?? 0) + 1
     }
     return acc
-  }, [history, lists, todos])
+  }, [history, todos])
 
   const liveCompletedCount = useMemo(
     () => todos.filter((t) => t.is_complete).length,
@@ -244,7 +238,8 @@ export default function HomeView() {
     faviconLink.href = catSvgSrc
   }, [catSvgSrc])
 
-  const hasAnyList = lists.length > 0
+  const totalListCount = lists.length
+  const hasAnyList = totalListCount > 0
   const hasTimedList = periodOverviewItems.length > 0
 
   return (
@@ -296,76 +291,55 @@ export default function HomeView() {
           )}
         </Box>
 
-        {!loading && !hasAnyList ? (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              No lists yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Create your first list and pick a cadence to start tracking
-              streaks, badges, and progress.
-            </Typography>
-            <Button
-              component={RouterLink}
-              to="/lists"
-              variant="contained"
-              color="primary"
-              startIcon={<TbPlus size={18} />}
-            >
-              New list
-            </Button>
-          </Paper>
-        ) : (
-          <>
-            <PeriodOverviewCard
-              items={periodOverviewItems}
-              loading={loading}
-            />
+        <>
+          <PeriodOverviewCard
+            items={periodOverviewItems}
+            totalListCount={totalListCount}
+            loading={loading}
+          />
 
-            <HeatmapCard
-              completionsByDay={completionsByDay}
-              loading={loading}
-            />
+          <HeatmapCard
+            completionsByDay={completionsByDay}
+            loading={loading}
+          />
 
-            <BadgesRail
-              awarded={badges}
-              listTitleById={listTitleById}
-              isLindseyUser={lindseyUser}
-              loading={loading}
-            />
+          <BadgesRail
+            awarded={badges}
+            listTitleById={listTitleById}
+            isLindseyUser={lindseyUser}
+            loading={loading}
+          />
 
-            <BestWorstInsights
-              lists={lists}
-              history={history}
-              itemHistory={itemHistory}
-              loading={loading}
-            />
+          <BestWorstInsights
+            lists={lists}
+            history={history}
+            itemHistory={itemHistory}
+            loading={loading}
+          />
 
-            <RollupStats
-              history={history}
-              liveCompletedCount={liveCompletedCount}
-              loading={loading}
-            />
+          <RollupStats
+            history={history}
+            liveCompletedCount={liveCompletedCount}
+            loading={loading}
+          />
 
-            {!loading && hasAnyList && !hasTimedList ? (
-              <Paper sx={{ p: 2.5, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  None of your lists have a cadence yet. Add daily, weekly, or
-                  monthly cadence to a list to start earning badges and
-                  streaks.
-                </Typography>
-                <Button
-                  component={RouterLink}
-                  to="/lists"
-                  variant="outlined"
-                  size="small"
-                >
-                  Manage lists
-                </Button>
-              </Paper>
-            ) : null}
-          </>
-        )}
+          {!loading && hasAnyList && !hasTimedList ? (
+            <Paper sx={{ p: 2.5, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                None of your lists have a cadence yet. Add daily, weekly, or
+                monthly cadence to a list to start earning badges and streaks.
+              </Typography>
+              <Button
+                component={RouterLink}
+                to="/lists"
+                variant="outlined"
+                size="small"
+              >
+                Manage lists
+              </Button>
+            </Paper>
+          ) : null}
+        </>
       </Stack>
     </Container>
   )
