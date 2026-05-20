@@ -203,6 +203,8 @@ export default function ListsView() {
           nextTimeFrame === 'none' ? null : now.toISOString(),
         next_reset_at: nextResetAt ? nextResetAt.toISOString() : null,
       })
+      const { error: badgeError } = await supabase.rpc('evaluate_user_badges')
+      if (badgeError) console.error('evaluate_user_badges failed', badgeError)
     } else if (editingId != null) {
       const updates: Record<string, unknown> = {
         title: nextTitle,

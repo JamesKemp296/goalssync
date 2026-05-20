@@ -5,6 +5,7 @@ import {
   TbCalendarCheck,
   TbCalendarStats,
   TbChartArrowsVertical,
+  TbClipboardList,
   TbFlame,
   TbMedal,
   TbRocket,
@@ -14,6 +15,7 @@ import {
   TbTarget,
   TbTrophy,
 } from 'react-icons/tb'
+import { getLindseyFirstListBadgeOverride } from './lindseyUx'
 
 export type BadgeKind = 'unique' | 'repeating'
 
@@ -38,6 +40,13 @@ export type BadgeAwardMetadata = {
 }
 
 export const BADGE_CATALOG: BadgeDefinition[] = [
+  {
+    keyPrefix: 'first_list',
+    kind: 'unique',
+    title: 'First List',
+    howToEarn: 'Create your first list.',
+    Icon: TbClipboardList,
+  },
   {
     keyPrefix: 'first_perfect_day',
     kind: 'unique',
@@ -197,6 +206,38 @@ function formatPeriodFromBadgeKey(badgeKey: string, prefix: string): string | nu
   return null
 }
 
+export function getBadgeDisplay(
+  def: BadgeDefinition,
+  opts: {
+    earned: boolean
+    isLindseyUser?: boolean
+    badgeKey?: string
+    metadata?: BadgeAwardMetadata | null
+    listTitleById?: Record<number, string>
+    awardedAt?: string | null
+    earnedCount?: number
+  },
+): { title: string; body: string; footnote?: string } {
+  const lindsey = getLindseyFirstListBadgeOverride(
+    !!opts.isLindseyUser,
+    def.keyPrefix,
+    opts.earned,
+  )
+  if (lindsey) {
+    return {
+      title: lindsey.title,
+      body: lindsey.body,
+      footnote: lindsey.footnote,
+    }
+  }
+  const detail = getBadgeDetailText(def, opts)
+  return {
+    title: def.title,
+    body: detail.body,
+    footnote: detail.footnote,
+  }
+}
+
 /** Text shown in the badge detail drawer. */
 export function getBadgeDetailText(
   def: BadgeDefinition,
@@ -226,6 +267,11 @@ export function getBadgeDetailText(
     : null
 
   switch (def.keyPrefix) {
+    case 'first_list':
+      return {
+        body: 'You created your first list.',
+        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+      }
     case 'first_perfect_day':
       return {
         body: listName

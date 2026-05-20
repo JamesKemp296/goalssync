@@ -12,11 +12,15 @@ import { alpha } from '@mui/material/styles'
 import {
   BADGE_CATALOG,
   findBadgeDefinition,
-  getBadgeDetailText,
+  getBadgeDisplay,
   type BadgeAwardMetadata,
   type BadgeDefinition,
 } from '../badges'
 import type { Database } from '../database.types'
+import {
+  getLindseyFirstListBadgeIcon,
+  isLindseyFirstListBadge,
+} from '../lindseyUx'
 
 type BadgeRow = Pick<
   Database['public']['Tables']['badges_awarded']['Row'],
@@ -26,6 +30,7 @@ type BadgeRow = Pick<
 type BadgesRailProps = {
   awarded: BadgeRow[]
   listTitleById?: Record<number, string>
+  isLindseyUser?: boolean
   loading?: boolean
 }
 
@@ -41,6 +46,7 @@ type RailEntry = {
 export default function BadgesRail({
   awarded,
   listTitleById = {},
+  isLindseyUser = false,
   loading = false,
 }: BadgesRailProps) {
   const [openBadge, setOpenBadge] = useState<RailEntry | null>(null)
@@ -59,13 +65,12 @@ export default function BadgesRail({
       const def = findBadgeDefinition(row.badge_key)
       if (!def) continue
       const meta = (row.metadata ?? {}) as BadgeAwardMetadata
-      const existing =
-        earnedByDef.get(def.keyPrefix) ?? {
-          count: 0,
-          latest: null,
-          latestKey: null,
-          latestMeta: null,
-        }
+      const existing = earnedByDef.get(def.keyPrefix) ?? {
+        count: 0,
+        latest: null,
+        latestKey: null,
+        latestMeta: null,
+      }
       existing.count += 1
       if (!existing.latest || row.awarded_at > existing.latest) {
         existing.latest = row.awarded_at
@@ -89,15 +94,32 @@ export default function BadgesRail({
 
   const earnedCount = entries.filter((e) => e.earned).length
 
-  const drawerDetail = openBadge
-    ? getBadgeDetailText(openBadge.definition, {
+  const drawerDisplay = openBadge
+    ? getBadgeDisplay(openBadge.definition, {
         earned: openBadge.earned,
+        isLindseyUser,
         badgeKey: openBadge.latestBadgeKey ?? undefined,
         metadata: openBadge.latestMetadata,
         listTitleById,
         awardedAt: openBadge.mostRecentAt,
         earnedCount: openBadge.earnedCount,
       })
+    : null
+
+  const drawerLindseyBadge = openBadge
+    ? isLindseyFirstListBadge(
+        isLindseyUser,
+        openBadge.definition.keyPrefix,
+        openBadge.earned,
+      )
+    : false
+  const DrawerIcon = openBadge
+    ? getLindseyFirstListBadgeIcon(
+        isLindseyUser,
+        openBadge.definition.keyPrefix,
+        openBadge.earned,
+        openBadge.definition.Icon,
+      )
     : null
 
   return (
@@ -125,12 +147,12 @@ export default function BadgesRail({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
             gap: 1.25,
           }}
         >
           {loading
-            ? Array.from({ length: 10 }).map((_, idx) => (
+            ? Array.from({ length: 16 }).map((_, idx) => (
                 <Skeleton
                   key={`badge-skel-${idx}`}
                   variant="rounded"
@@ -140,7 +162,21 @@ export default function BadgesRail({
               ))
             : entries.map((entry) => {
                 const { definition, earned } = entry
-                const Icon = definition.Icon
+                const display = getBadgeDisplay(definition, {
+                  earned,
+                  isLindseyUser,
+                })
+                const lindseyBadge = isLindseyFirstListBadge(
+                  isLindseyUser,
+                  definition.keyPrefix,
+                  earned,
+                )
+                const Icon = getLindseyFirstListBadgeIcon(
+                  isLindseyUser,
+                  definition.keyPrefix,
+                  earned,
+                  definition.Icon,
+                )
                 return (
                   <ButtonBase
                     key={definition.keyPrefix}
@@ -173,9 +209,15 @@ export default function BadgesRail({
                         height: 38,
                         borderRadius: '50%',
                         bgcolor: (theme) =>
-                          earned
-                            ? alpha(theme.palette.primary.main, 0.22)
-                            : 'transparent',
+                          earned && lindseyBadge
+                            ? alpha(theme.palette.error.light, 0.22)
+                            : earned
+                              ? alpha(theme.palette.primary.main, 0.22)
+                              : 'transparent',
+                        color: (theme) =>
+                          earned && lindseyBadge
+                            ? theme.palette.error.main
+                            : 'inherit',
                         display: 'grid',
                         placeItems: 'center',
                         mt: 0.5,
@@ -193,7 +235,7 @@ export default function BadgesRail({
                         color: 'text.primary',
                       }}
                     >
-                      {definition.title}
+                      {display.title}
                     </Typography>
                   </ButtonBase>
                 )
@@ -216,8 +258,11 @@ export default function BadgesRail({
           },
         }}
       >
-        {openBadge && drawerDetail ? (
-          <Stack spacing={1.5} sx={{ alignItems: 'center', textAlign: 'center' }}>
+        {openBadge && drawerDisplay && DrawerIcon ? (
+          <Stack
+            spacing={1.5}
+            sx={{ alignItems: 'center', textAlign: 'center' }}
+          >
             <Box
               sx={{
                 width: 72,
@@ -227,18 +272,23 @@ export default function BadgesRail({
                   openBadge.earned
                     ? alpha(theme.palette.primary.main, 0.22)
                     : theme.palette.action.hover,
-                color: openBadge.earned ? 'primary.main' : 'text.secondary',
+                color: (theme) =>
+                  openBadge.earned && drawerLindseyBadge
+                    ? theme.palette.error.main
+                    : openBadge.earned
+                      ? theme.palette.primary.main
+                      : theme.palette.text.secondary,
                 display: 'grid',
                 placeItems: 'center',
               }}
             >
-              <openBadge.definition.Icon size={36} />
+              <DrawerIcon size={36} />
             </Box>
             <Typography variant="h5" sx={{ fontWeight: 900 }}>
-              {openBadge.definition.title}
+              {drawerDisplay.title}
             </Typography>
             <Typography color="text.secondary" sx={{ maxWidth: 360 }}>
-              {drawerDetail.body}
+              {drawerDisplay.body}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {!openBadge.earned
@@ -249,7 +299,7 @@ export default function BadgesRail({
                           openBadge.earnedCount === 1 ? 'time' : 'times'
                         }`
                       : null,
-                    drawerDetail.footnote,
+                    drawerDisplay.footnote,
                   ]
                     .filter(Boolean)
                     .join(' · ') || null}

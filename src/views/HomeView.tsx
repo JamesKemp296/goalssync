@@ -21,6 +21,7 @@ import BadgesRail from '../components/BadgesRail'
 import HeatmapCard from '../components/HeatmapCard'
 import BestWorstInsights from '../components/BestWorstInsights'
 import RollupStats from '../components/RollupStats'
+import { isLindseyUser, rollShowLindseyUX } from '../lindseyUx'
 
 type ListRow = Database['public']['Tables']['lists']['Row']
 type TodoRow = Pick<
@@ -215,18 +216,14 @@ export default function HomeView() {
     return `You're ${pct}% through your timed lists.`
   }, [periodOverviewItems])
 
-  const isLindseyUser = useMemo(() => {
-    const normalizedFirstName = firstName.toLowerCase()
-    const normalizedEmail = email.toLowerCase()
-    return (
-      normalizedFirstName.includes('lindsey') ||
-      normalizedEmail.includes('lindsey')
-    )
-  }, [firstName, email])
+  const lindseyUser = useMemo(
+    () => isLindseyUser(firstName, email),
+    [firstName, email],
+  )
 
   useEffect(() => {
-    setShowLindseyUX(isLindseyUser && Math.random() < 0.2)
-  }, [isLindseyUser])
+    setShowLindseyUX(rollShowLindseyUX(firstName, email))
+  }, [lindseyUser, firstName, email])
 
   const greeting = useMemo(() => {
     if (showLindseyUX) return 'Hey, gorgeous'
@@ -333,6 +330,7 @@ export default function HomeView() {
             <BadgesRail
               awarded={badges}
               listTitleById={listTitleById}
+              isLindseyUser={lindseyUser}
               loading={loading}
             />
 
