@@ -35,8 +35,8 @@ export default function TodoItemsList({
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
-            px: 1.25,
-            py: 0.8,
+            px: 2,
+            py: 1.5,
             bgcolor: 'background.paper',
           }}
         >
