@@ -5,7 +5,7 @@ import {
   useState,
   type FormEvent,
 } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Box, CircularProgress, Container } from '@mui/material'
 import { TbCheckupList, TbList, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
@@ -17,11 +17,15 @@ import type { Database } from '../database.types'
 
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
+type TodosRouteState = { backTo?: string }
 
 export default function TodosView() {
   const { listId: listIdParam } = useParams<{ listId: string }>()
+  const location = useLocation()
   const navigate = useNavigate()
   const listId = listIdParam ? Number(listIdParam) : NaN
+  const routeState = location.state as TodosRouteState | null
+  const backTo = typeof routeState?.backTo === 'string' ? routeState.backTo : '/lists'
 
   const [list, setList] = useState<ListRow | null>(null)
   const [todos, setTodos] = useState<TodoRow[]>([])
@@ -40,7 +44,7 @@ export default function TodosView() {
 
   useEffect(() => {
     if (!Number.isFinite(listId)) {
-      navigate('/lists', { replace: true })
+      navigate(backTo, { replace: true })
       return
     }
     let cancelled = false
@@ -53,7 +57,7 @@ export default function TodosView() {
       if (!myUserId) {
         if (cancelled) return
         setLoading(false)
-        navigate('/lists', { replace: true })
+        navigate(backTo, { replace: true })
         return
       }
       const { data: listRow, error } = await supabase
@@ -65,7 +69,7 @@ export default function TodosView() {
       if (cancelled) return
       if (error || !listRow) {
         setLoading(false)
-        navigate('/lists', { replace: true })
+        navigate(backTo, { replace: true })
         return
       }
       setList(listRow as ListRow)
@@ -81,7 +85,7 @@ export default function TodosView() {
     return () => {
       cancelled = true
     }
-  }, [listId, navigate])
+  }, [backTo, listId, navigate])
 
   const add = async (e: FormEvent) => {
     e.preventDefault()
@@ -133,7 +137,7 @@ export default function TodosView() {
   const deleteList = async () => {
     if (!supabase || !Number.isFinite(listId)) return
     await supabase.from('lists').delete().eq('id', listId)
-    navigate('/lists', { replace: true })
+    navigate(backTo, { replace: true })
   }
 
   const menuItems = useMemo<AppHeaderMenuItem[]>(
@@ -166,7 +170,7 @@ export default function TodosView() {
   if (loading || !list) {
     return (
       <>
-        <AppHeader title="Loading…" backTo="/lists" />
+        <AppHeader title="Loading…" backTo={backTo} />
         <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8 }}>
           <CircularProgress />
         </Box>
@@ -176,7 +180,7 @@ export default function TodosView() {
 
   return (
     <>
-      <AppHeader title={list.title} backTo="/lists" menuItems={menuItems} />
+      <AppHeader title={list.title} backTo={backTo} menuItems={menuItems} />
       <Box
         sx={{
           height: 4,

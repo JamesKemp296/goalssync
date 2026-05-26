@@ -171,6 +171,7 @@ export default function PeriodOverviewCard({
                   key={list.id}
                   component={RouterLink}
                   to={`/lists/${list.id}`}
+                  state={{ backTo: '/home' }}
                   sx={{
                     width: '100%',
                     textAlign: 'left',
