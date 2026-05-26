@@ -121,6 +121,14 @@ export default function TodosView() {
     void loadTodos()
   }
 
+  const edit = async (id: number, nextTask: string) => {
+    if (!supabase) return
+    const task = nextTask.trim()
+    if (!task) return
+    await supabase.from('todos').update({ task }).eq('id', id)
+    void loadTodos()
+  }
+
   const markAll = async (is_complete: boolean) => {
     if (!supabase || !Number.isFinite(listId)) return
     await supabase
@@ -204,6 +212,7 @@ export default function TodosView() {
             if (todo) void toggle(todo)
           }}
           onRemove={(id) => void remove(id)}
+          onEdit={(id, nextTask) => edit(id, nextTask)}
         />
       </Container>
     </>
