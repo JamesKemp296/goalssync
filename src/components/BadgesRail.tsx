@@ -8,7 +8,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
 import {
   BADGE_CATALOG,
   findBadgeDefinition,
@@ -41,6 +41,20 @@ type RailEntry = {
   mostRecentAt: string | null
   latestBadgeKey: string | null
   latestMetadata: BadgeAwardMetadata | null
+}
+
+/** MUI text.secondary is rgba; outline icons need an opaque stroke color. */
+function badgeIconColor(
+  theme: Theme,
+  earned: boolean,
+  lindseyBadge: boolean,
+): string {
+  if (earned) {
+    return lindseyBadge
+      ? theme.palette.error.main
+      : theme.palette.primary.main
+  }
+  return theme.palette.mode === 'dark' ? '#b3b3b3' : '#666666'
 }
 
 export default function BadgesRail({
@@ -139,7 +153,7 @@ export default function BadgesRail({
             <Skeleton variant="text" width={48} />
           ) : (
             <Typography variant="caption" color="text.secondary">
-              {`${earnedCount} / ${entries.length} earned`}
+              {`${earnedCount} of ${entries.length}`}
             </Typography>
           )}
         </Box>
@@ -177,6 +191,8 @@ export default function BadgesRail({
                   earned,
                   definition.Icon,
                 )
+                const iconColor = (theme: Theme) =>
+                  badgeIconColor(theme, earned, lindseyBadge)
                 return (
                   <ButtonBase
                     key={definition.keyPrefix}
@@ -195,12 +211,10 @@ export default function BadgesRail({
                         earned
                           ? alpha(theme.palette.primary.main, 0.16)
                           : theme.palette.action.hover,
-                      color: earned ? 'primary.main' : 'text.secondary',
                       border: (theme) =>
                         earned
                           ? `1px solid ${alpha(theme.palette.primary.main, 0.4)}`
                           : `1px dashed ${theme.palette.divider}`,
-                      opacity: earned ? 1 : 0.55,
                     }}
                   >
                     <Box
@@ -214,10 +228,7 @@ export default function BadgesRail({
                             : earned
                               ? alpha(theme.palette.primary.main, 0.22)
                               : 'transparent',
-                        color: (theme) =>
-                          earned && lindseyBadge
-                            ? theme.palette.error.main
-                            : 'inherit',
+                        color: iconColor,
                         display: 'grid',
                         placeItems: 'center',
                         mt: 0.5,
@@ -273,11 +284,11 @@ export default function BadgesRail({
                     ? alpha(theme.palette.primary.main, 0.22)
                     : theme.palette.action.hover,
                 color: (theme) =>
-                  openBadge.earned && drawerLindseyBadge
-                    ? theme.palette.error.main
-                    : openBadge.earned
-                      ? theme.palette.primary.main
-                      : theme.palette.text.secondary,
+                  badgeIconColor(
+                    theme,
+                    openBadge.earned,
+                    drawerLindseyBadge,
+                  ),
                 display: 'grid',
                 placeItems: 'center',
               }}
@@ -292,10 +303,10 @@ export default function BadgesRail({
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {!openBadge.earned
-                ? 'Not yet unlocked'
+                ? 'Not earned yet'
                 : [
                     openBadge.definition.kind === 'repeating'
-                      ? `Earned ${openBadge.earnedCount} ${
+                      ? `${openBadge.earnedCount} ${
                           openBadge.earnedCount === 1 ? 'time' : 'times'
                         }`
                       : null,

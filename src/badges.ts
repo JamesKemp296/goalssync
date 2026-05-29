@@ -1,18 +1,20 @@
 import type { IconType } from 'react-icons'
 import {
   TbAward,
-  TbBolt,
+  TbBallAmericanFootball,
+  TbBallBaseball,
+  TbBallBasketball,
   TbCalendarCheck,
   TbCalendarStats,
   TbChartArrowsVertical,
   TbClipboardList,
-  TbFlame,
+  TbCreditCard,
+  TbHexagonNumber9,
+  TbTrain,
+  TbBus,
   TbMedal,
-  TbRocket,
   TbStarFilled,
   TbSunrise,
-  TbTargetArrow,
-  TbTarget,
   TbTrophy,
 } from 'react-icons/tb'
 import { getLindseyFirstListBadgeOverride } from './lindseyUx'
@@ -52,8 +54,7 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     keyPrefix: 'first_perfect_day',
     kind: 'unique',
     title: 'First Perfect Day',
-    howToEarn:
-      'Check off every task in a daily list before that day resets at midnight.',
+    howToEarn: 'Check off every task in a daily list before that day resets.',
     Icon: TbStarFilled,
   },
   {
@@ -61,127 +62,115 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     kind: 'unique',
     title: 'On a Roll',
     howToEarn:
-      'On one list, finish every task for 7 periods in a row (daily, weekly, or monthly).',
-    Icon: TbFlame,
+      'Seven in a row on one list. Daily, weekly, or monthly. Just keep the streak alive.',
+    Icon: TbTrain,
   },
   {
     keyPrefix: 'daily_three_peat',
     kind: 'unique',
-    title: 'Daily Three-Peat',
+    title: 'Hat Trick',
     howToEarn:
       'Finish every task in a daily list on 3 different days (after each day resets).',
-    Icon: TbBolt,
+    Icon: TbBallBasketball,
   },
   {
     keyPrefix: 'daily_ten',
     kind: 'unique',
-    title: 'Daily Ten',
-    howToEarn:
-      'Finish every task in a daily list on 10 different days across your daily lists.',
-    Icon: TbRocket,
+    title: 'Daily Rider',
+    howToEarn: 'Finish a daily list on 10 different days.',
+    Icon: TbBus,
   },
   {
     keyPrefix: 'daily_streak_3',
     kind: 'unique',
-    title: '3-Day Streak',
-    howToEarn:
-      'On the same daily list, finish every task for 3 days in a row.',
-    Icon: TbFlame,
+    title: 'Three-Peat',
+    howToEarn: 'Finish the same daily list 3 days in a row.',
+    Icon: TbBallAmericanFootball,
   },
   {
     keyPrefix: 'weekly_three_peat',
     kind: 'unique',
-    title: 'Weekly Three-Peat',
-    howToEarn:
-      'Finish every task in a weekly list for 3 separate weeks (after each week resets).',
-    Icon: TbCalendarCheck,
+    title: 'Grand Slam',
+    howToEarn: 'Finish a weekly list in 3 different weeks.',
+    Icon: TbBallBaseball,
   },
   {
     keyPrefix: 'weekly_eight',
     kind: 'unique',
-    title: 'Weekly Eight',
-    howToEarn:
-      'Finish every task in a weekly list for 8 separate weeks across your weekly lists.',
-    Icon: TbTarget,
+    title: 'Nine Perfect Innings',
+    howToEarn: 'Finish a weekly list in 9 different weeks.',
+    Icon: TbHexagonNumber9,
   },
   {
     keyPrefix: 'weekly_big_five',
     kind: 'unique',
     title: 'Weekly Big Five',
     howToEarn:
-      'Complete a weekly list with 5 or more items in a single weekly period.',
+      'Finish a weekly list that has at least 5 tasks. Loaded bases energy.',
     Icon: TbCalendarCheck,
   },
   {
     keyPrefix: 'monthly_big_eight',
     kind: 'unique',
     title: 'Monthly Big Eight',
-    howToEarn:
-      'Complete a monthly list with 8 or more items in a single monthly period.',
+    howToEarn: 'Finish a monthly list that has at least 8 tasks.',
     Icon: TbMedal,
   },
   {
     keyPrefix: 'weekly_streak_3',
     kind: 'unique',
     title: '3-Week Streak',
-    howToEarn:
-      'On the same weekly list, finish every task for 3 weeks in a row.',
+    howToEarn: 'Finish the same weekly list 3 weeks in a row.',
     Icon: TbChartArrowsVertical,
   },
   {
     keyPrefix: 'weekly_streak_6',
     kind: 'unique',
     title: '6-Week Streak',
-    howToEarn:
-      'On the same weekly list, finish every task for 6 weeks in a row.',
+    howToEarn: 'Finish the same weekly list 6 weeks in a row.',
     Icon: TbTrophy,
   },
   {
     keyPrefix: 'perfect_week_',
     kind: 'repeating',
-    title: 'Perfect Week',
-    howToEarn:
-      'Before a weekly list resets, check off every task in that list for that week.',
+    title: 'Series Sweep',
+    howToEarn: 'Clear a weekly list before the week rolls over.',
     Icon: TbTrophy,
   },
   {
     keyPrefix: 'century_completer',
     kind: 'unique',
     title: 'Century Club',
-    howToEarn:
-      'Check off 100 tasks total, across any of your lists (daily, weekly, or monthly).',
+    howToEarn: 'Complete 100 tasks.',
     Icon: TbAward,
   },
   {
     keyPrefix: 'early_bird',
     kind: 'unique',
     title: 'Early Bird',
-    howToEarn:
-      'Finish every task in a daily list before noon in your timezone.',
+    howToEarn: 'Finish a daily list before noon.',
     Icon: TbSunrise,
   },
   {
     keyPrefix: 'consistency_30',
     kind: 'unique',
     title: 'Consistency',
-    howToEarn:
-      'Keep going for 30 list periods: each time a daily, weekly, or monthly list hits its reset, that counts as one period.',
+    howToEarn: 'Keep going for 30 list resets.',
     Icon: TbCalendarStats,
   },
   {
     keyPrefix: 'goal_getter',
     kind: 'unique',
-    title: 'Goal Getter',
+    title: 'SEPTA Key Holder',
     howToEarn:
-      'Over the last 30 days, finish every task in at least 9 out of every 10 list periods you close (you need at least 10 closed periods).',
-    Icon: TbTargetArrow,
+      'Over the last 30 days, finish everything on at least 9 out of every 10 list resets.',
+    Icon: TbCreditCard,
   },
   {
     keyPrefix: 'flawless_month_',
     kind: 'repeating',
     title: 'Flawless Month',
-    howToEarn:
-      'Before a monthly list resets, check off every task in that list for that month.',
+    howToEarn: 'Clear a monthly list before the month ends.',
     Icon: TbMedal,
   },
 ]
@@ -190,7 +179,9 @@ export function findBadgeDefinition(
   badgeKey: string,
 ): BadgeDefinition | undefined {
   return BADGE_CATALOG.find((b) =>
-    b.kind === 'unique' ? b.keyPrefix === badgeKey : badgeKey.startsWith(b.keyPrefix),
+    b.kind === 'unique'
+      ? b.keyPrefix === badgeKey
+      : badgeKey.startsWith(b.keyPrefix),
   )
 }
 
@@ -203,7 +194,10 @@ function listLabel(
   return title || `List #${listId}`
 }
 
-function formatPeriodFromBadgeKey(badgeKey: string, prefix: string): string | null {
+function formatPeriodFromBadgeKey(
+  badgeKey: string,
+  prefix: string,
+): string | null {
   const suffix = badgeKey.slice(prefix.length)
   if (!suffix) return null
   if (prefix === 'perfect_week_') {
@@ -283,148 +277,143 @@ export function getBadgeDetailText(
       })
     : null
 
+  // Keep cases in BADGE_CATALOG order.
   switch (def.keyPrefix) {
     case 'first_list':
       return {
-        body: 'You created your first list.',
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+        body: 'Your first list is live.',
+        footnote: dateStr ?? undefined,
       }
     case 'first_perfect_day':
       return {
         body: listName
-          ? `You finished every task in your daily list “${listName}.”`
-          : 'You finished every task in a daily list.',
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
-      }
-    case 'early_bird':
-      return {
-        body: listName
-          ? `You finished “${listName}” before noon.`
-          : 'You finished a daily list before noon.',
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+          ? `First perfect day on “${listName}.”`
+          : 'Your first perfect day on a daily list.',
+        footnote: dateStr ?? undefined,
       }
     case 'first_streak_7':
       return {
         body: listName
-          ? `Seven perfect periods in a row on “${listName}.”`
-          : 'Seven perfect periods in a row on one list.',
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+          ? `Seven in a row on “${listName}.” On a roll.`
+          : 'Seven in a row on one list. On a roll.',
+        footnote: dateStr ?? undefined,
+      }
+    case 'daily_three_peat':
+      return {
+        body: `Hat trick: ${meta.count ?? 3} perfect days on your daily lists.`,
+        footnote: dateStr ?? undefined,
+      }
+    case 'daily_ten':
+      return {
+        body: `${meta.count ?? 10} perfect days. Daily Rider status.`,
+        footnote: dateStr ?? undefined,
       }
     case 'daily_streak_3':
       return {
         body: listName
-          ? `Three perfect daily days in a row on “${listName}.”`
-          : 'Three perfect daily days in a row on one daily list.',
+          ? `Three-peat on “${listName}”, 3 days in a row.`
+          : 'Three-peat: 3 perfect days in a row on one daily list.',
         footnote:
           meta.streak != null
             ? `${meta.streak}-day streak${dateStr ? ` · ${dateStr}` : ''}`
-            : dateStr
-              ? `Earned ${dateStr}`
-              : undefined,
-      }
-    case 'weekly_streak_3':
-      return {
-        body: listName
-          ? `Three perfect weeks in a row on “${listName}.”`
-          : 'Three perfect weeks in a row on one weekly list.',
-        footnote:
-          meta.streak != null
-            ? `${meta.streak}-week streak${dateStr ? ` · ${dateStr}` : ''}`
-            : dateStr
-              ? `Earned ${dateStr}`
-              : undefined,
-      }
-    case 'weekly_streak_6':
-      return {
-        body: listName
-          ? `Six perfect weeks in a row on “${listName}.”`
-          : 'Six perfect weeks in a row on one weekly list.',
-        footnote:
-          meta.streak != null
-            ? `${meta.streak}-week streak${dateStr ? ` · ${dateStr}` : ''}`
-            : dateStr
-              ? `Earned ${dateStr}`
-              : undefined,
-      }
-    case 'perfect_week_': {
-      const period =
-        (opts.badgeKey && formatPeriodFromBadgeKey(opts.badgeKey, def.keyPrefix)) ||
-        null
-      return {
-        body: listName
-          ? `Perfect week on “${listName}” — every task done before the week reset.`
-          : 'Perfect week on a weekly list — every task done before the week reset.',
-        footnote: period
-          ? `Week of ${period}${dateStr ? ` · ${dateStr}` : ''}`
-          : dateStr
-            ? `Earned ${dateStr}`
-            : undefined,
-      }
-    }
-    case 'flawless_month_': {
-      const period =
-        (opts.badgeKey && formatPeriodFromBadgeKey(opts.badgeKey, def.keyPrefix)) ||
-        null
-      return {
-        body: listName
-          ? `Perfect month on “${listName}” — every task done before the month reset.`
-          : 'Perfect month on a monthly list — every task done before the month reset.',
-        footnote: period ?? (dateStr ? `Earned ${dateStr}` : undefined),
-      }
-    }
-    case 'century_completer':
-      return {
-        body: `You have checked off ${meta.lifetime ?? 100}+ tasks across all your lists.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
-      }
-    case 'consistency_30':
-      return {
-        body: `You have closed ${meta.periods ?? 30}+ list periods (daily, weekly, or monthly resets).`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
-      }
-    case 'goal_getter':
-      return {
-        body: `In the last 30 days, you finished every task in ${meta.rate ?? 90}% of your closed list periods (${meta.periods ?? '10+'} periods tracked).`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
-      }
-    case 'daily_three_peat':
-      return {
-        body: `You have had ${meta.count ?? 3} perfect days on your daily lists.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
-      }
-    case 'daily_ten':
-      return {
-        body: `You have had ${meta.count ?? 10} perfect days on your daily lists.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+            : (dateStr ?? undefined),
       }
     case 'weekly_three_peat':
       return {
-        body: `You have had ${meta.count ?? 3} perfect weeks on your weekly lists.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+        body: `Grand slam: ${meta.count ?? 3} perfect weeks on your weekly lists.`,
+        footnote: dateStr ?? undefined,
       }
     case 'weekly_eight':
       return {
-        body: `You have had ${meta.count ?? 8} perfect weeks on your weekly lists.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+        body: `${meta.count ?? 9} perfect weeks. Nine perfect innings.`,
+        footnote: dateStr ?? undefined,
       }
     case 'weekly_big_five':
       return {
         body: listName
-          ? `You completed “${listName}” with ${meta.total_count ?? 5}+ items in one week.`
-          : `You completed a weekly list with ${meta.total_count ?? 5}+ items in one week.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+          ? `Weekly Big Five on “${listName}”, ${meta.total_count ?? 5}+ tasks in one week.`
+          : `Weekly Big Five: ${meta.total_count ?? 5}+ tasks cleared in one week.`,
+        footnote: dateStr ?? undefined,
       }
     case 'monthly_big_eight':
       return {
         body: listName
-          ? `You completed “${listName}” with ${meta.total_count ?? 8}+ items in one month.`
-          : `You completed a monthly list with ${meta.total_count ?? 8}+ items in one month.`,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+          ? `Monthly Big Eight on “${listName}”, ${meta.total_count ?? 8}+ tasks in one month.`
+          : `Monthly Big Eight: ${meta.total_count ?? 8}+ tasks cleared in one month.`,
+        footnote: dateStr ?? undefined,
       }
+    case 'weekly_streak_3':
+      return {
+        body: listName
+          ? `3-week streak on “${listName}.”`
+          : '3-week streak on one weekly list.',
+        footnote:
+          meta.streak != null
+            ? `${meta.streak}-week streak${dateStr ? ` · ${dateStr}` : ''}`
+            : (dateStr ?? undefined),
+      }
+    case 'weekly_streak_6':
+      return {
+        body: listName
+          ? `6-week streak on “${listName}.”`
+          : '6-week streak on one weekly list.',
+        footnote:
+          meta.streak != null
+            ? `${meta.streak}-week streak${dateStr ? ` · ${dateStr}` : ''}`
+            : (dateStr ?? undefined),
+      }
+    case 'perfect_week_': {
+      const period =
+        (opts.badgeKey &&
+          formatPeriodFromBadgeKey(opts.badgeKey, def.keyPrefix)) ||
+        null
+      return {
+        body: listName
+          ? `Series sweep on “${listName}.”`
+          : 'Weekly list cleared.',
+        footnote: period
+          ? `${period}${dateStr ? ` · ${dateStr}` : ''}`
+          : (dateStr ?? undefined),
+      }
+    }
+    case 'century_completer':
+      return {
+        body: `${meta.lifetime ?? 100}+ tasks. Century Club.`,
+        footnote: dateStr ?? undefined,
+      }
+    case 'early_bird':
+      return {
+        body: listName
+          ? `Early bird on “${listName}”, done before noon.`
+          : 'Daily list done before noon.',
+        footnote: dateStr ?? undefined,
+      }
+    case 'consistency_30':
+      return {
+        body: `${meta.periods ?? 30}+ list resets. Consistency badge earned.`,
+        footnote: dateStr ?? undefined,
+      }
+    case 'goal_getter':
+      return {
+        body: `Last 30 days: finished everything on ${meta.rate ?? 90}% of your list cycles.`,
+        footnote: dateStr ?? undefined,
+      }
+    case 'flawless_month_': {
+      const period =
+        (opts.badgeKey &&
+          formatPeriodFromBadgeKey(opts.badgeKey, def.keyPrefix)) ||
+        null
+      return {
+        body: listName
+          ? `Flawless month on “${listName}.”`
+          : 'Monthly list cleared.',
+        footnote: period ?? dateStr ?? undefined,
+      }
+    }
     default:
       return {
         body: def.howToEarn,
-        footnote: dateStr ? `Earned ${dateStr}` : undefined,
+        footnote: dateStr ?? undefined,
       }
   }
 }

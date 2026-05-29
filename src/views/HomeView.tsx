@@ -193,7 +193,7 @@ export default function HomeView() {
 
   const heroSubtitle = useMemo(() => {
     if (periodOverviewItems.length === 0) {
-      return 'Set a list cadence to start earning badges.'
+      return 'Give a list a daily, weekly, or monthly schedule to start collecting badges.'
     }
     const totalTodos = periodOverviewItems.reduce(
       (acc, it) => acc + it.total,
@@ -326,8 +326,8 @@ export default function HomeView() {
           {!loading && hasAnyList && !hasTimedList ? (
             <Paper sx={{ p: 2.5, textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                None of your lists have a cadence yet. Add daily, weekly, or
-                monthly cadence to a list to start earning badges and streaks.
+                None of your lists reset on a schedule yet. Pick daily, weekly,
+                or monthly on a list to start earning badges and streaks.
               </Typography>
               <Button
                 component={RouterLink}
