@@ -8,19 +8,28 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { TbCheck, TbEdit, TbTrash, TbX } from 'react-icons/tb'
+import { TbCheck, TbEdit, TbMinus, TbPlus, TbTrash, TbX } from 'react-icons/tb'
+
+const TARGET_MAX = 99
 
 export type TodoListItem = {
   id: number
   task: string
   is_complete: boolean
+  target_count: number
+  progress_count: number
+}
+
+export type TodoEditPayload = {
+  task: string
+  target_count: number
 }
 
 type TodoItemsListProps = {
   todos: TodoListItem[]
   onToggle?: (id: number) => void
   onRemove?: (id: number) => void
-  onEdit?: (id: number, nextTask: string) => Promise<void> | void
+  onEdit?: (id: number, payload: TodoEditPayload) => Promise<void> | void
   readOnly?: boolean
   showDelete?: boolean
 }
@@ -60,6 +69,7 @@ export default function TodoItemsList({
   const [dragOffsetX, setDragOffsetX] = useState(0)
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null)
   const [editingValue, setEditingValue] = useState('')
+  const [editingTargetCount, setEditingTargetCount] = useState(1)
   const [savingEdit, setSavingEdit] = useState(false)
 
   const hasEditAction = !readOnly && Boolean(onEdit)
@@ -78,17 +88,22 @@ export default function TodoItemsList({
   const clampOffset = (value: number) =>
     Math.max(-actionsWidth, Math.min(0, value))
 
+  const clampTarget = (n: number) =>
+    Math.min(TARGET_MAX, Math.max(1, Math.round(n)))
+
   const beginEdit = (todo: TodoListItem) => {
     setOpenTodoId(null)
     setDragTodoId(null)
     setDragOffsetX(0)
     setEditingTodoId(todo.id)
     setEditingValue(todo.task)
+    setEditingTargetCount(Math.max(1, todo.target_count))
   }
 
   const cancelEdit = () => {
     setEditingTodoId(null)
     setEditingValue('')
+    setEditingTargetCount(1)
   }
 
   const saveEdit = async (id: number) => {
@@ -97,9 +112,13 @@ export default function TodoItemsList({
     if (!next) return
     setSavingEdit(true)
     try {
-      await onEdit(id, next)
+      await onEdit(id, {
+        task: next,
+        target_count: clampTarget(editingTargetCount),
+      })
       setEditingTodoId(null)
       setEditingValue('')
+      setEditingTargetCount(1)
     } finally {
       setSavingEdit(false)
     }
@@ -201,6 +220,17 @@ export default function TodoItemsList({
   return (
     <Stack spacing={1.25}>
       {todos.map((todo) => {
+        const target = Math.max(1, todo.target_count)
+        const progress = Math.min(Math.max(0, todo.progress_count), target)
+        const multiCount = target > 1
+        const indeterminate = multiCount && progress > 0 && !todo.is_complete
+        const progressLabel = multiCount ? `${progress}/${target}` : null
+        const checkboxAriaLabel = multiCount
+          ? `${progress} of ${target} completed`
+          : todo.is_complete
+            ? 'Mark incomplete'
+            : 'Mark complete'
+
         const rowIsOpen = openTodoId === todo.id
         const rowIsEditing = editingTodoId === todo.id
         const translateX =
@@ -311,60 +341,113 @@ export default function TodoItemsList({
               }}
             >
               {rowIsEditing ? (
-                <Box
-                  component="form"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    void saveEdit(todo.id)
-                  }}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    width: '100%',
-                  }}
-                >
-                  <TextField
-                    autoFocus
-                    size="small"
-                    value={editingValue}
-                    onChange={(e) => setEditingValue(e.target.value)}
-                    placeholder="Edit task"
-                    fullWidth
-                    disabled={savingEdit}
-                    slotProps={{ htmlInput: { maxLength: 280 } }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') cancelEdit()
+                <Stack spacing={1} sx={{ width: '100%' }}>
+                  <Box
+                    component="form"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      void saveEdit(todo.id)
                     }}
-                    data-no-swipe="true"
-                    data-no-toggle="true"
-                  />
-                  <IconButton
-                    aria-label="Save task edit"
-                    type="submit"
-                    disabled={savingEdit || !editingValue.trim()}
-                    color="primary"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      width: '100%',
+                    }}
+                  >
+                    <TextField
+                      autoFocus
+                      size="small"
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      placeholder="Edit task"
+                      fullWidth
+                      disabled={savingEdit}
+                      slotProps={{ htmlInput: { maxLength: 280 } }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') cancelEdit()
+                      }}
+                      data-no-swipe="true"
+                      data-no-toggle="true"
+                    />
+                    <IconButton
+                      aria-label="Save task edit"
+                      type="submit"
+                      disabled={savingEdit || !editingValue.trim()}
+                      color="primary"
+                      data-no-swipe="true"
+                      data-no-toggle="true"
+                    >
+                      <TbCheck size={20} />
+                    </IconButton>
+                    <IconButton
+                      aria-label="Cancel task edit"
+                      onClick={cancelEdit}
+                      disabled={savingEdit}
+                      data-no-swipe="true"
+                      data-no-toggle="true"
+                    >
+                      <TbX size={20} />
+                    </IconButton>
+                  </Box>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: 'center' }}
                     data-no-swipe="true"
                     data-no-toggle="true"
                   >
-                    <TbCheck size={20} />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Cancel task edit"
-                    onClick={cancelEdit}
-                    disabled={savingEdit}
-                    data-no-swipe="true"
-                    data-no-toggle="true"
-                  >
-                    <TbX size={20} />
-                  </IconButton>
-                </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Times
+                    </Typography>
+                    <IconButton
+                      type="button"
+                      size="small"
+                      aria-label="Decrease repeat count"
+                      disabled={savingEdit || editingTargetCount <= 1}
+                      onClick={() =>
+                        setEditingTargetCount((n) => clampTarget(n - 1))
+                      }
+                    >
+                      <TbMinus size={18} />
+                    </IconButton>
+                    <Typography
+                      variant="body2"
+                      sx={{ minWidth: 24, textAlign: 'center', fontWeight: 700 }}
+                    >
+                      {editingTargetCount}
+                    </Typography>
+                    <IconButton
+                      type="button"
+                      size="small"
+                      aria-label="Increase repeat count"
+                      disabled={savingEdit || editingTargetCount >= TARGET_MAX}
+                      onClick={() =>
+                        setEditingTargetCount((n) => clampTarget(n + 1))
+                      }
+                    >
+                      <TbPlus size={18} />
+                    </IconButton>
+                  </Stack>
+                </Stack>
               ) : (
                 <>
                   <Checkbox
                     checked={todo.is_complete}
+                    indeterminate={indeterminate}
                     disabled={readOnly}
                     onChange={() => onToggle?.(todo.id)}
+                    slotProps={{
+                      input: {
+                        'aria-label': checkboxAriaLabel,
+                        ...(multiCount
+                          ? {
+                              'aria-valuenow': progress,
+                              'aria-valuemax': target,
+                            }
+                          : {}),
+                      },
+                    }}
                     data-no-swipe="true"
                     data-no-toggle="true"
                   />
@@ -384,6 +467,16 @@ export default function TodoItemsList({
                   >
                     {todo.task}
                   </Typography>
+                  {progressLabel ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 700, flexShrink: 0 }}
+                      aria-hidden
+                    >
+                      {progressLabel}
+                    </Typography>
+                  ) : null}
                 </>
               )}
             </Paper>

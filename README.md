@@ -55,7 +55,10 @@ create table todos (
   list_id bigint not null references lists(id) on delete cascade,
   task text not null,
   is_complete boolean not null default false,
-  created_at timestamptz not null default now()
+  target_count int not null default 1 check (target_count >= 1),
+  progress_count int not null default 0 check (progress_count >= 0),
+  created_at timestamptz not null default now(),
+  check (progress_count <= target_count)
 );
 
 alter table todos enable row level security;
@@ -86,6 +89,17 @@ alter table lists
 
 alter table lists
   add column if not exists pinned_at timestamptz;
+```
+
+For multi-count tasks (tap to increment until done), run the migration in `supabase/migrations/20260529120000_todo_target_progress.sql` or:
+
+```sql
+alter table todos
+  add column if not exists target_count int not null default 1 check (target_count >= 1),
+  add column if not exists progress_count int not null default 0 check (progress_count >= 0);
+
+alter table todos
+  add constraint todos_progress_lte_target check (progress_count <= target_count);
 ```
 
 (`list` and `#92d0c8` match defaults in `src/listIcons.ts` / `src/listColors.ts`.)

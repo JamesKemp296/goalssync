@@ -57,6 +57,8 @@ export interface Database {
           task: string
           is_complete: boolean
           completed_at: string | null
+          target_count: number
+          progress_count: number
           created_at: string
         }
         Insert: {
@@ -65,6 +67,8 @@ export interface Database {
           task: string
           is_complete?: boolean
           completed_at?: string | null
+          target_count?: number
+          progress_count?: number
           created_at?: string
         }
         Update: {
@@ -73,6 +77,8 @@ export interface Database {
           task?: string
           is_complete?: boolean
           completed_at?: string | null
+          target_count?: number
+          progress_count?: number
           created_at?: string
         }
         Relationships: []

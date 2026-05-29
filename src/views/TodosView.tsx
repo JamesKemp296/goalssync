@@ -10,10 +10,17 @@ import { Box, CircularProgress, Container } from '@mui/material'
 import { TbCheckupList, TbList, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import TodoComposer from '../components/TodoComposer'
-import TodoItemsList from '../components/TodoItemsList'
+import TodoItemsList, {
+  type TodoEditPayload,
+} from '../components/TodoItemsList'
 import { normalizeListColor } from '../listColors'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
+import {
+  completionFromProgress,
+  completionFromTargetEdit,
+  nextProgressCount,
+} from '../todoProgress'
 
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
@@ -30,6 +37,7 @@ export default function TodosView() {
   const [list, setList] = useState<ListRow | null>(null)
   const [todos, setTodos] = useState<TodoRow[]>([])
   const [text, setText] = useState('')
+  const [targetCount, setTargetCount] = useState(1)
   const [loading, setLoading] = useState(true)
 
   const loadTodos = useCallback(async () => {
@@ -90,8 +98,14 @@ export default function TodosView() {
   const add = async (e: FormEvent) => {
     e.preventDefault()
     if (!supabase || !text.trim() || !Number.isFinite(listId)) return
-    await supabase.from('todos').insert({ list_id: listId, task: text.trim() })
+    const target = Math.min(99, Math.max(1, targetCount))
+    await supabase.from('todos').insert({
+      list_id: listId,
+      task: text.trim(),
+      target_count: target,
+    })
     setText('')
+    setTargetCount(1)
     void loadTodos()
   }
 
@@ -101,17 +115,24 @@ export default function TodosView() {
     if (error) console.error('evaluate_user_badges failed', error)
   }, [])
 
-  const toggle = async (t: TodoRow) => {
+  const advance = async (t: TodoRow) => {
     if (!supabase) return
-    const becameComplete = !t.is_complete
+    const nextProgress = nextProgressCount(t)
+    const wasComplete = t.is_complete
+    const { is_complete, completed_at } = completionFromProgress(
+      nextProgress,
+      t.target_count,
+      t.completed_at,
+    )
     await supabase
       .from('todos')
       .update({
-        is_complete: becameComplete,
-        completed_at: becameComplete ? new Date().toISOString() : null,
+        progress_count: nextProgress,
+        is_complete,
+        completed_at,
       })
       .eq('id', t.id)
-    if (becameComplete) void evaluateBadges()
+    if (is_complete && !wasComplete) void evaluateBadges()
     void loadTodos()
   }
 
@@ -121,24 +142,60 @@ export default function TodosView() {
     void loadTodos()
   }
 
-  const edit = async (id: number, nextTask: string) => {
+  const edit = async (id: number, payload: TodoEditPayload) => {
     if (!supabase) return
-    const task = nextTask.trim()
+    const task = payload.task.trim()
     if (!task) return
-    await supabase.from('todos').update({ task }).eq('id', id)
-    void loadTodos()
-  }
-
-  const markAll = async (is_complete: boolean) => {
-    if (!supabase || !Number.isFinite(listId)) return
+    const todo = todos.find((item) => item.id === id)
+    if (!todo) return
+    const target = Math.min(99, Math.max(1, payload.target_count))
+    const synced = completionFromTargetEdit(
+      todo.progress_count,
+      target,
+      todo.completed_at,
+    )
     await supabase
       .from('todos')
       .update({
-        is_complete,
-        completed_at: is_complete ? new Date().toISOString() : null,
+        task,
+        target_count: target,
+        progress_count: synced.progress_count,
+        is_complete: synced.is_complete,
+        completed_at: synced.completed_at,
       })
-      .eq('list_id', listId)
-    if (is_complete) void evaluateBadges()
+      .eq('id', id)
+    void loadTodos()
+  }
+
+  const markAll = async (complete: boolean) => {
+    if (!supabase || !Number.isFinite(listId)) return
+    const db = supabase
+    const now = new Date().toISOString()
+    if (complete) {
+      const rows = todos
+      await Promise.all(
+        rows.map((t) =>
+          db
+            .from('todos')
+            .update({
+              progress_count: Math.max(1, t.target_count),
+              is_complete: true,
+              completed_at: now,
+            })
+            .eq('id', t.id),
+        ),
+      )
+      void evaluateBadges()
+    } else {
+      await db
+        .from('todos')
+        .update({
+          progress_count: 0,
+          is_complete: false,
+          completed_at: null,
+        })
+        .eq('list_id', listId)
+    }
     void loadTodos()
   }
 
@@ -202,6 +259,8 @@ export default function TodosView() {
         <TodoComposer
           value={text}
           onChange={setText}
+          targetCount={targetCount}
+          onTargetCountChange={setTargetCount}
           onSubmit={add}
           placeholder="What needs doing?"
         />
@@ -209,10 +268,10 @@ export default function TodosView() {
           todos={todos}
           onToggle={(id) => {
             const todo = todos.find((item) => item.id === id)
-            if (todo) void toggle(todo)
+            if (todo) void advance(todo)
           }}
           onRemove={(id) => void remove(id)}
-          onEdit={(id, nextTask) => edit(id, nextTask)}
+          onEdit={(id, payload) => edit(id, payload)}
         />
       </Container>
     </>
