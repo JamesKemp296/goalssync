@@ -3,11 +3,13 @@ import {
   Box,
   Checkbox,
   IconButton,
+  LinearProgress,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { TbCheck, TbEdit, TbMinus, TbPlus, TbTrash, TbX } from 'react-icons/tb'
 
 const TARGET_MAX = 99
@@ -223,7 +225,6 @@ export default function TodoItemsList({
         const target = Math.max(1, todo.target_count)
         const progress = Math.min(Math.max(0, todo.progress_count), target)
         const multiCount = target > 1
-        const indeterminate = multiCount && progress > 0 && !todo.is_complete
         const progressLabel = multiCount ? `${progress}/${target}` : null
         const checkboxAriaLabel = multiCount
           ? `${progress} of ${target} completed`
@@ -239,6 +240,8 @@ export default function TodoItemsList({
             : rowIsOpen && hasSwipeActions
               ? -actionsWidth
               : 0
+        const progressPct =
+          target > 0 ? Math.round((progress / target) * 100) : 0
         return (
           <Box
             key={todo.id}
@@ -326,7 +329,7 @@ export default function TodoItemsList({
                     : 'transform 180ms cubic-bezier(0.2, 0, 0, 1)',
                 touchAction: hasSwipeActions ? 'pan-y' : 'auto',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'stretch',
                 gap: 1,
                 border: '1px solid',
                 borderColor: 'divider',
@@ -431,10 +434,16 @@ export default function TodoItemsList({
                   </Stack>
                 </Stack>
               ) : (
-                <>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    width: '100%',
+                  }}
+                >
                   <Checkbox
                     checked={todo.is_complete}
-                    indeterminate={indeterminate}
                     disabled={readOnly}
                     onChange={() => onToggle?.(todo.id)}
                     slotProps={{
@@ -451,33 +460,66 @@ export default function TodoItemsList({
                     data-no-swipe="true"
                     data-no-toggle="true"
                   />
-                  <Typography
-                    sx={{
-                      flex: 1,
-                      minWidth: 0,
-                      fontWeight: 600,
-                      textDecoration: todo.is_complete
-                        ? 'line-through'
-                        : 'none',
-                      color: todo.is_complete
-                        ? 'text.secondary'
-                        : 'text.primary',
-                    }}
-                    noWrap
-                  >
-                    {todo.task}
-                  </Typography>
-                  {progressLabel ? (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ fontWeight: 700, flexShrink: 0 }}
-                      aria-hidden
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        minWidth: 0,
+                      }}
                     >
-                      {progressLabel}
-                    </Typography>
-                  ) : null}
-                </>
+                      <Typography
+                        sx={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontWeight: 600,
+                          textDecoration: todo.is_complete
+                            ? 'line-through'
+                            : 'none',
+                          color: todo.is_complete
+                            ? 'text.secondary'
+                            : 'text.primary',
+                        }}
+                        noWrap
+                      >
+                        {todo.task}
+                      </Typography>
+                      {progressLabel ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            fontWeight: 700,
+                            flexShrink: 0,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                          aria-hidden
+                        >
+                          {progressLabel}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                    {multiCount ? (
+                      <LinearProgress
+                        variant="determinate"
+                        value={progressPct}
+                        aria-hidden
+                        sx={{
+                          mt: 1.25,
+                          height: 6,
+                          borderRadius: 999,
+                          bgcolor: (theme) =>
+                            alpha(theme.palette.primary.main, 0.16),
+                          '& .MuiLinearProgress-bar': {
+                            borderRadius: 999,
+                            bgcolor: 'primary.main',
+                          },
+                        }}
+                      />
+                    ) : null}
+                  </Box>
+                </Box>
               )}
             </Paper>
           </Box>
