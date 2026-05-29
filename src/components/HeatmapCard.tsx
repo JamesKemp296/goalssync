@@ -1,6 +1,15 @@
-import { useMemo } from 'react'
-import { Box, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { useMemo, useState } from 'react'
+import {
+  Box,
+  ClickAwayListener,
+  Paper,
+  Skeleton,
+  Stack,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+} from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 
 type HeatmapCardProps = {
   /** Map of YYYY-MM-DD (local date) → total completions on that day. */
@@ -9,6 +18,23 @@ type HeatmapCardProps = {
 }
 
 const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const ROLLING_DAY_COUNT = 30
+
+type CalCell =
+  | { type: 'empty' }
+  | {
+      type: 'day'
+      date: Date
+      key: string
+      value: number
+      isFuture: boolean
+      isMonthStart: boolean
+    }
+
+type HeatmapWeek = {
+  monthLabel?: string
+  cells: CalCell[]
+}
 
 function toLocalKey(date: Date): string {
   const y = date.getFullYear()
@@ -25,157 +51,187 @@ function formatHumanDate(date: Date): string {
   })
 }
 
+function formatRangeDate(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function completionTooltipTitle(date: Date, value: number): string {
+  const noun = value === 1 ? 'task' : 'tasks'
+  return `${formatHumanDate(date)} • ${value} ${noun} completed`
+}
+
 /** ISO day-of-week: Monday = 0 … Sunday = 6 */
 function isoDow(date: Date): number {
   const d = date.getDay()
   return d === 0 ? 6 : d - 1
 }
 
-type CalCell =
-  | { type: 'empty' }
-  | { type: 'day'; date: Date; key: string; value: number; isFuture: boolean }
-
-function buildMonth(
-  year: number,
-  month: number, // 0-indexed
-  completionsByDay: Record<string, number>,
-): { label: string; weeks: CalCell[][] } {
-  const label = new Date(year, month, 1).toLocaleString(undefined, {
-    month: 'long',
-    year: 'numeric',
-  })
-  const firstDay = new Date(year, month, 1)
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const startPad = isoDow(firstDay) // 0 = Mon, …, 6 = Sun
-  const now = Date.now()
-
-  const allCells: CalCell[] = []
-  for (let i = 0; i < startPad; i++) allCells.push({ type: 'empty' })
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d)
-    const key = toLocalKey(date)
-    allCells.push({
-      type: 'day',
-      date,
-      key,
-      value: completionsByDay[key] ?? 0,
-      isFuture: date.getTime() > now,
-    })
-  }
-
-  const weeks: CalCell[][] = []
-  for (let i = 0; i < allCells.length; i += 7) {
-    const week = allCells.slice(i, i + 7)
-    while (week.length < 7) week.push({ type: 'empty' })
-    weeks.push(week)
-  }
-  return { label, weeks }
+function startOfLocalDay(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
-function MonthGridSkeleton({
-  label,
-  weekCount,
+function buildRollingWeeks(
+  completionsByDay: Record<string, number>,
+  dayCount = ROLLING_DAY_COUNT,
+): { weeks: HeatmapWeek[]; rangeLabel: string } {
+  const end = startOfLocalDay(new Date())
+  const start = new Date(end)
+  start.setDate(start.getDate() - (dayCount - 1))
+
+  const gridStart = new Date(start)
+  while (isoDow(gridStart) !== 0) {
+    gridStart.setDate(gridStart.getDate() - 1)
+  }
+
+  const gridEnd = new Date(end)
+  while (isoDow(gridEnd) !== 6) {
+    gridEnd.setDate(gridEnd.getDate() + 1)
+  }
+
+  const now = Date.now()
+  const weeks: HeatmapWeek[] = []
+  const cursor = new Date(gridStart)
+
+  while (cursor <= gridEnd) {
+    const weekCells: CalCell[] = []
+    let monthLabel: string | undefined
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(cursor)
+      const inRange = date >= start && date <= end
+      const isMonthStart = date.getDate() === 1
+
+      if (isMonthStart) {
+        monthLabel = date.toLocaleString(undefined, {
+          month: 'long',
+          year: 'numeric',
+        })
+      }
+
+      if (!inRange && date < start) {
+        weekCells.push({ type: 'empty' })
+      } else {
+        const key = toLocalKey(date)
+        weekCells.push({
+          type: 'day',
+          date,
+          key,
+          value: completionsByDay[key] ?? 0,
+          isFuture: date.getTime() > now,
+          isMonthStart,
+        })
+      }
+
+      cursor.setDate(cursor.getDate() + 1)
+    }
+
+    weeks.push({ monthLabel, cells: weekCells })
+  }
+
+  const rangeLabel = `${formatRangeDate(start)} – ${formatRangeDate(end)}`
+  return { weeks, rangeLabel }
+}
+
+function HeatmapCell({
+  cell,
+  max,
+  selected,
+  onSelect,
+  useTapTooltip,
 }: {
-  label: string
-  weekCount: number
+  cell: Extract<CalCell, { type: 'day' }>
+  max: number
+  selected: boolean
+  onSelect: (key: string | null) => void
+  useTapTooltip: boolean
 }) {
+  const theme = useTheme()
+  const { date, key, value, isFuture, isMonthStart } = cell
+  const intensity = max === 0 ? 0 : Math.min(1, value / max)
+  const tooltipTitle = completionTooltipTitle(date, value)
+
   return (
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography
-        variant="caption"
-        sx={{
-          fontWeight: 800,
-          display: 'block',
-          mb: 0.75,
-          textAlign: 'center',
-          fontSize: '0.7rem',
-        }}
-      >
-        {label}
-      </Typography>
+    <Tooltip
+      title={tooltipTitle}
+      placement="top"
+      arrow
+      open={useTapTooltip ? selected : undefined}
+      disableHoverListener={useTapTooltip}
+      disableFocusListener
+      enterTouchDelay={0}
+      leaveTouchDelay={useTapTooltip ? 0 : 1500}
+    >
       <Box
+        component="button"
+        type="button"
+        aria-label={tooltipTitle}
+        aria-pressed={useTapTooltip ? selected : undefined}
+        onClick={() => {
+          if (useTapTooltip) onSelect(selected ? null : key)
+        }}
         sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 0.5,
-          mb: 0.5,
+          aspectRatio: '1',
+          minWidth: 0,
+          width: '100%',
+          borderRadius: 0.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 0,
+          bgcolor: isFuture
+            ? 'transparent'
+            : value === 0
+              ? theme.palette.action.hover
+              : alpha(theme.palette.primary.main, 0.25 + intensity * 0.65),
+          border: isFuture
+            ? `1px dashed ${theme.palette.divider}`
+            : isMonthStart
+              ? `2px solid ${alpha(theme.palette.primary.main, 0.45)}`
+              : 'none',
+          cursor: 'pointer',
+          outline: selected
+            ? `2px solid ${theme.palette.primary.main}`
+            : 'none',
+          outlineOffset: 1,
+          WebkitTapHighlightColor: 'transparent',
+          '&:focus-visible': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: 1,
+          },
         }}
       >
-        {DOW_LABELS.map((d) => (
-          <Typography
-            key={d}
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              fontSize: '0.55rem',
-              textAlign: 'center',
-              fontWeight: 700,
-              lineHeight: 1,
-            }}
-          >
-            {d}
-          </Typography>
-        ))}
+        <Typography
+          variant="caption"
+          component="span"
+          sx={{
+            fontSize: '0.55rem',
+            lineHeight: 1,
+            fontWeight: isMonthStart ? 800 : 600,
+            color: isFuture
+              ? theme.palette.text.disabled
+              : value > 0
+                ? theme.palette.primary.dark
+                : theme.palette.text.secondary,
+            opacity: isFuture ? 0.4 : 1,
+          }}
+        >
+          {date.getDate()}
+        </Typography>
       </Box>
-      <Stack spacing={0.5}>
-        {Array.from({ length: weekCount }).map((_, wIdx) => (
-          <Box
-            key={`skel-week-${wIdx}`}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: 0.5,
-            }}
-          >
-            {Array.from({ length: 7 }).map((_, cIdx) => (
-              <Box
-                key={`skel-cell-${wIdx}-${cIdx}`}
-                sx={{ aspectRatio: '1', minWidth: 0 }}
-              >
-                <Skeleton
-                  variant="rounded"
-                  animation="wave"
-                  sx={{ width: '100%', height: '100%', borderRadius: 0.5 }}
-                />
-              </Box>
-            ))}
-          </Box>
-        ))}
-      </Stack>
-    </Box>
+    </Tooltip>
   )
 }
 
-function MonthGrid({
-  label,
-  weeks,
-  max,
-}: {
-  label: string
-  weeks: CalCell[][]
-  max: number
-}) {
+function RollingGridSkeleton({ weeks }: { weeks: HeatmapWeek[] }) {
   return (
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography
-        variant="caption"
-        sx={{
-          fontWeight: 800,
-          display: 'block',
-          mb: 0.75,
-          textAlign: 'center',
-          fontSize: '0.7rem',
-        }}
-      >
-        {label}
-      </Typography>
-      {/* Day-of-week header */}
+    <Stack spacing={1}>
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
           gap: 0.5,
-          mb: 0.5,
         }}
       >
         {DOW_LABELS.map((d) => (
@@ -184,7 +240,7 @@ function MonthGrid({
             variant="caption"
             color="text.secondary"
             sx={{
-              fontSize: '0.55rem',
+              fontSize: '0.6rem',
               textAlign: 'center',
               fontWeight: 700,
               lineHeight: 1,
@@ -194,75 +250,140 @@ function MonthGrid({
           </Typography>
         ))}
       </Box>
-      {/* Week rows */}
-      <Stack spacing={0.5}>
+      <Stack spacing={0.75}>
         {weeks.map((week, wIdx) => (
-          <Box
-            key={`week-${wIdx}`}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: 0.5,
-            }}
-          >
-            {week.map((cell, cIdx) => {
-              if (cell.type === 'empty') {
-                return <Box key={`empty-${wIdx}-${cIdx}`} sx={{ aspectRatio: '1' }} />
-              }
-              const { date, key, value, isFuture } = cell
-              const intensity = max === 0 ? 0 : Math.min(1, value / max)
-              return (
-                <Tooltip
-                  key={key}
-                  title={`${formatHumanDate(date)} • ${value} completed`}
-                  placement="top"
-                  arrow
+          <Stack key={`skel-week-${wIdx}`} spacing={0.35}>
+            {week.monthLabel ? (
+              <Skeleton
+                variant="text"
+                animation="wave"
+                width={72}
+                sx={{
+                  ml: 0.25,
+                  fontSize: '0.7rem',
+                  lineHeight: 1.66,
+                }}
+              />
+            ) : null}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: 0.5,
+              }}
+            >
+              {Array.from({ length: 7 }).map((_, cIdx) => (
+                <Box
+                  key={`skel-cell-${wIdx}-${cIdx}`}
+                  sx={{ aspectRatio: '1', minWidth: 0 }}
                 >
-                  <Box
-                    sx={(theme) => ({
-                      aspectRatio: '1',
-                      borderRadius: 0.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: isFuture
-                        ? 'transparent'
-                        : value === 0
-                          ? theme.palette.action.hover
-                          : alpha(
-                              theme.palette.primary.main,
-                              0.25 + intensity * 0.65,
-                            ),
-                      border: isFuture
-                        ? `1px dashed ${theme.palette.divider}`
-                        : 'none',
-                      cursor: isFuture ? 'default' : 'pointer',
-                    })}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={(theme) => ({
-                        fontSize: '0.5rem',
-                        lineHeight: 1,
-                        fontWeight: 600,
-                        color: isFuture
-                          ? theme.palette.text.disabled
-                          : value > 0
-                            ? theme.palette.primary.dark
-                            : theme.palette.text.secondary,
-                        opacity: isFuture ? 0.4 : 1,
-                      })}
-                    >
-                      {date.getDate()}
-                    </Typography>
-                  </Box>
-                </Tooltip>
-              )
-            })}
-          </Box>
+                  <Skeleton
+                    variant="rounded"
+                    animation="wave"
+                    sx={{ width: '100%', height: '100%', borderRadius: 0.5 }}
+                  />
+                </Box>
+              ))}
+            </Box>
+          </Stack>
         ))}
       </Stack>
-    </Box>
+    </Stack>
+  )
+}
+
+function RollingGrid({
+  weeks,
+  max,
+}: {
+  weeks: HeatmapWeek[]
+  max: number
+}) {
+  const useTapTooltip = useMediaQuery('(hover: none), (pointer: coarse)')
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+
+  const grid = (
+    <Stack spacing={1}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: 0.5,
+        }}
+      >
+        {DOW_LABELS.map((d) => (
+          <Typography
+            key={d}
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              fontSize: '0.6rem',
+              textAlign: 'center',
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {d}
+          </Typography>
+        ))}
+      </Box>
+
+      <Stack spacing={0.75}>
+        {weeks.map((week, wIdx) => (
+          <Stack key={`week-${wIdx}`} spacing={0.35}>
+            {week.monthLabel ? (
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: '0.7rem',
+                  color: 'text.secondary',
+                  pl: 0.25,
+                }}
+              >
+                {week.monthLabel}
+              </Typography>
+            ) : null}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: 0.5,
+              }}
+            >
+              {week.cells.map((cell, cIdx) => {
+                if (cell.type === 'empty') {
+                  return (
+                    <Box
+                      key={`empty-${wIdx}-${cIdx}`}
+                      sx={{ aspectRatio: '1', minWidth: 0 }}
+                    />
+                  )
+                }
+                return (
+                  <HeatmapCell
+                    key={cell.key}
+                    cell={cell}
+                    max={max}
+                    selected={selectedKey === cell.key}
+                    onSelect={setSelectedKey}
+                    useTapTooltip={useTapTooltip}
+                  />
+                )
+              })}
+            </Box>
+          </Stack>
+        ))}
+      </Stack>
+    </Stack>
+  )
+
+  if (!useTapTooltip) return grid
+
+  return (
+    <ClickAwayListener onClickAway={() => setSelectedKey(null)}>
+      <Box sx={{ width: '100%' }}>{grid}</Box>
+    </ClickAwayListener>
   )
 }
 
@@ -270,21 +391,14 @@ export default function HeatmapCard({
   completionsByDay,
   loading = false,
 }: HeatmapCardProps) {
-  const { lastMonth, currentMonth, max, totalCompletions } = useMemo(() => {
-    const now = new Date()
-    const curYear = now.getFullYear()
-    const curMonthIdx = now.getMonth()
-    const prevMonthIdx = curMonthIdx === 0 ? 11 : curMonthIdx - 1
-    const prevYear = curMonthIdx === 0 ? curYear - 1 : curYear
+  const skeletonWeeks = useMemo(() => buildRollingWeeks({}).weeks, [])
 
-    const last = buildMonth(prevYear, prevMonthIdx, completionsByDay)
-    const current = buildMonth(curYear, curMonthIdx, completionsByDay)
-
+  const { weeks, rangeLabel, max, totalCompletions } = useMemo(() => {
+    const { weeks, rangeLabel } = buildRollingWeeks(completionsByDay)
     const allValues = Object.values(completionsByDay)
     const max = allValues.length > 0 ? Math.max(...allValues) : 0
     const totalCompletions = allValues.reduce((a, v) => a + v, 0)
-
-    return { lastMonth: last, currentMonth: current, max, totalCompletions }
+    return { weeks, rangeLabel, max, totalCompletions }
   }, [completionsByDay])
 
   return (
@@ -295,11 +409,22 @@ export default function HeatmapCard({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'baseline',
+            gap: 1,
+            flexWrap: 'wrap',
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 900 }}>
-            Completion heatmap
-          </Typography>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 900 }}>
+              Completion heatmap
+            </Typography>
+            {loading ? (
+              <Skeleton variant="text" width={120} sx={{ mt: 0.25 }} />
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                {`Last ${ROLLING_DAY_COUNT} days · ${rangeLabel}`}
+              </Typography>
+            )}
+          </Box>
           {loading ? (
             <Skeleton variant="text" width={80} />
           ) : (
@@ -309,33 +434,11 @@ export default function HeatmapCard({
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {loading ? (
-            <>
-              <MonthGridSkeleton
-                label={lastMonth.label}
-                weekCount={lastMonth.weeks.length}
-              />
-              <MonthGridSkeleton
-                label={currentMonth.label}
-                weekCount={currentMonth.weeks.length}
-              />
-            </>
-          ) : (
-            <>
-              <MonthGrid
-                label={lastMonth.label}
-                weeks={lastMonth.weeks}
-                max={max}
-              />
-              <MonthGrid
-                label={currentMonth.label}
-                weeks={currentMonth.weeks}
-                max={max}
-              />
-            </>
-          )}
-        </Box>
+        {loading ? (
+          <RollingGridSkeleton weeks={skeletonWeeks} />
+        ) : (
+          <RollingGrid weeks={weeks} max={max} />
+        )}
 
         {loading ? (
           <Stack
