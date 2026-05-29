@@ -1,6 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, type ComponentType } from 'react'
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material'
-import { TbArrowDownRight, TbArrowUpRight, TbMinus } from 'react-icons/tb'
+import { alpha } from '@mui/material/styles'
+import {
+  TbArrowDownRight,
+  TbArrowUpRight,
+  TbChartBar,
+  TbMinus,
+  TbTarget,
+  TbTrendingUp,
+} from 'react-icons/tb'
 import type { Database } from '../database.types'
 
 type ListPeriodHistoryRow =
@@ -69,34 +77,35 @@ export default function RollupStats({
     return { totalLifetime, successRate, trendPct }
   }, [history, liveCompletedCount])
 
+  const trendUp = stats.trendPct != null && stats.trendPct > 0
+  const trendDown = stats.trendPct != null && stats.trendPct < 0
   const TrendIcon =
     stats.trendPct == null
       ? TbMinus
-      : stats.trendPct > 0
+      : trendUp
         ? TbArrowUpRight
-        : stats.trendPct < 0
+        : trendDown
           ? TbArrowDownRight
           : TbMinus
 
   return (
-    <Paper sx={{ borderRadius: 3, p: 2 }}>
-      <Stack spacing={1.25}>
+    <Paper sx={{ borderRadius: 3, p: 2.5 }}>
+      <Stack spacing={2}>
         <Typography variant="h6" sx={{ fontWeight: 900 }}>
           Your numbers
         </Typography>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 1.5,
-          }}
-        >
-          <StatBlock
+
+        <Stack spacing={1.25}>
+          <StatTile
+            loading={loading}
+            icon={TbChartBar}
             label="Lifetime completed"
             value={loading ? null : String(stats.totalLifetime)}
-            sub="total todos finished"
+            sub="All-time todos finished"
           />
-          <StatBlock
+          <StatTile
+            loading={loading}
+            icon={TbTarget}
             label="Success rate"
             value={
               loading
@@ -105,9 +114,11 @@ export default function RollupStats({
                   ? '—'
                   : `${stats.successRate}%`
             }
-            sub="last 30 days"
+            sub="Last 30 days"
           />
-          <StatBlock
+          <StatTile
+            loading={loading}
+            icon={TbTrendingUp}
             label="Week trend"
             value={
               loading
@@ -116,68 +127,122 @@ export default function RollupStats({
                   ? '—'
                   : `${stats.trendPct > 0 ? '+' : ''}${stats.trendPct}%`
             }
-            sub="vs prior week"
+            sub="Vs prior week"
             valueColor={
               stats.trendPct == null
                 ? 'text.primary'
-                : stats.trendPct > 0
+                : trendUp
                   ? 'success.main'
-                  : stats.trendPct < 0
+                  : trendDown
                     ? 'error.main'
                     : 'text.primary'
             }
-            ValueIcon={loading ? undefined : TrendIcon}
+            trailingIcon={loading ? undefined : TrendIcon}
           />
-        </Box>
+        </Stack>
       </Stack>
     </Paper>
   )
 }
 
-type StatBlockProps = {
+type StatTileProps = {
+  loading?: boolean
+  icon: ComponentType<{ size?: number }>
   label: string
   value: string | null
   sub: string
   valueColor?: string
-  ValueIcon?: React.ComponentType<{ size?: number }>
+  trailingIcon?: ComponentType<{ size?: number }>
 }
 
-function StatBlock({ label, value, sub, valueColor, ValueIcon }: StatBlockProps) {
+function StatTile({
+  loading,
+  icon: Icon,
+  label,
+  value,
+  sub,
+  valueColor = 'text.primary',
+  trailingIcon: TrailingIcon,
+}: StatTileProps) {
   return (
-    <Box>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ fontWeight: 700, textTransform: 'uppercase', display: 'block' }}
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        p: 1.75,
+        borderRadius: 2.5,
+        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.06),
+        border: (theme) =>
+          `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+      }}
+    >
+      <Box
+        sx={{
+          width: 40,
+          height: 40,
+          borderRadius: 2,
+          flexShrink: 0,
+          display: 'grid',
+          placeItems: 'center',
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
+          color: 'primary.main',
+        }}
       >
-        {label}
-      </Typography>
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={{ alignItems: 'center', mt: 0.4 }}
+        <Icon size={20} />
+      </Box>
+
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ fontWeight: 600, lineHeight: 1.3 }}
+        >
+          {label}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          {sub}
+        </Typography>
+      </Box>
+
+      <Box
+        sx={{
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+        }}
       >
-        {value === null ? (
-          <Skeleton variant="text" width="60%" height={32} />
+        {loading || value === null ? (
+          <Skeleton variant="text" width={56} height={36} />
         ) : (
           <>
-            {ValueIcon ? <ValueIcon size={18} /> : null}
+            {TrailingIcon ? (
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  color: valueColor,
+                  lineHeight: 0,
+                }}
+              >
+                <TrailingIcon size={18} />
+              </Box>
+            ) : null}
             <Typography
-              variant="h6"
-              sx={{ fontWeight: 900, color: valueColor ?? 'text.primary' }}
+              variant="h5"
+              sx={{
+                fontWeight: 900,
+                color: valueColor,
+                lineHeight: 1.1,
+                fontVariantNumeric: 'tabular-nums',
+              }}
             >
               {value}
             </Typography>
           </>
         )}
-      </Stack>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: 'block' }}
-      >
-        {sub}
-      </Typography>
+      </Box>
     </Box>
   )
 }
