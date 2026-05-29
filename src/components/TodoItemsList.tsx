@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import {
   Box,
   Checkbox,
@@ -219,9 +219,19 @@ export default function TodoItemsList({
     onToggle(todo.id)
   }
 
+  const sortedTodos = useMemo(() => {
+    const open: TodoListItem[] = []
+    const done: TodoListItem[] = []
+    for (const todo of todos) {
+      if (todo.is_complete) done.push(todo)
+      else open.push(todo)
+    }
+    return [...open, ...done]
+  }, [todos])
+
   return (
     <Stack spacing={1.25}>
-      {todos.map((todo) => {
+      {sortedTodos.map((todo) => {
         const target = Math.max(1, todo.target_count)
         const progress = Math.min(Math.max(0, todo.progress_count), target)
         const multiCount = target > 1
@@ -525,7 +535,7 @@ export default function TodoItemsList({
           </Box>
         )
       })}
-      {todos.length === 0 ? (
+      {sortedTodos.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
           No tasks yet.
         </Typography>
