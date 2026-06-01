@@ -60,7 +60,7 @@ export default function ListCard({
   const effectiveResetAt =
     nextResetAt ??
     (showCadence && timeFrame
-      ? computeNextResetAt(timeFrame, now)?.toISOString() ?? null
+      ? (computeNextResetAt(timeFrame, now)?.toISOString() ?? null)
       : null)
   const resetLabel = !loading ? formatResetCountdown(effectiveResetAt, now) : ''
   const metaLine = resetLabel
@@ -101,7 +101,15 @@ export default function ListCard({
           )}
         </Box>
 
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.25,
+          }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -112,7 +120,12 @@ export default function ListCard({
             }}
           >
             {loading ? (
-              <Skeleton variant="rounded" width="55%" height={22} sx={{ flex: 1 }} />
+              <Skeleton
+                variant="rounded"
+                width="55%"
+                height={22}
+                sx={{ flex: 1 }}
+              />
             ) : (
               <Typography
                 noWrap
@@ -156,12 +169,22 @@ export default function ListCard({
             {loading ? (
               <Skeleton variant="rounded" width="45%" height={18} />
             ) : (
-              <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                sx={{ minWidth: 0 }}
+              >
                 {metaLine}
               </Typography>
             )}
             {loading ? (
-              <Skeleton variant="rounded" width={56} height={20} sx={{ borderRadius: 999, flexShrink: 0 }} />
+              <Skeleton
+                variant="rounded"
+                width={56}
+                height={20}
+                sx={{ borderRadius: 999, flexShrink: 0 }}
+              />
             ) : (
               <Box
                 sx={{
@@ -183,7 +206,9 @@ export default function ListCard({
                   variant="caption"
                   sx={{ fontWeight: 700, fontSize: '0.65rem', lineHeight: 1.2 }}
                 >
-                  {showCadence ? TIME_FRAME_SHORT[timeFrame!] : TIME_FRAME_SHORT.daily}
+                  {showCadence
+                    ? TIME_FRAME_SHORT[timeFrame!]
+                    : TIME_FRAME_SHORT.daily}
                 </Typography>
               </Box>
             )}
@@ -207,7 +232,12 @@ export default function ListCard({
               height={5}
               sx={{ flex: 1, borderRadius: 999 }}
             />
-            <Skeleton variant="rounded" width={28} height={12} sx={{ flexShrink: 0 }} />
+            <Skeleton
+              variant="rounded"
+              width={28}
+              height={12}
+              sx={{ flexShrink: 0 }}
+            />
           </>
         ) : (
           <>
@@ -281,7 +311,6 @@ export default function ListCard({
       <SwipeActionButtons
         actions={swipeActions}
         width={actionButtonsWidth}
-        inset={{ top: 0, bottom: 0 }}
       />
       {card}
     </Box>
