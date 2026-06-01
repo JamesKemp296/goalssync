@@ -305,7 +305,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
 
           <Button
             variant="contained"
-            color="warning"
+            color="primary"
             startIcon={<TbLogout2 size={18} />}
             onClick={() => void supabase?.auth.signOut()}
           >

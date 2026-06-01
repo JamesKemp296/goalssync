@@ -50,11 +50,9 @@ function badgeIconColor(
   lindseyBadge: boolean,
 ): string {
   if (earned) {
-    return lindseyBadge
-      ? theme.palette.error.main
-      : theme.palette.primary.main
+    return lindseyBadge ? theme.palette.error.main : theme.palette.primary.main
   }
-  return theme.palette.mode === 'dark' ? '#b3b3b3' : '#666666'
+  return theme.palette.text.secondary
 }
 
 export default function BadgesRail({
@@ -284,11 +282,7 @@ export default function BadgesRail({
                     ? alpha(theme.palette.primary.main, 0.22)
                     : theme.palette.action.hover,
                 color: (theme) =>
-                  badgeIconColor(
-                    theme,
-                    openBadge.earned,
-                    drawerLindseyBadge,
-                  ),
+                  badgeIconColor(theme, openBadge.earned, drawerLindseyBadge),
                 display: 'grid',
                 placeItems: 'center',
               }}

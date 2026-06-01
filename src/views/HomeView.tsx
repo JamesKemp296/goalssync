@@ -253,12 +253,20 @@ export default function HomeView() {
             gap: 1.5,
           }}
         >
-          <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ minWidth: 0, flex: 1, pr: 1 }}>
             {loading ? (
-              <>
-                <Skeleton variant="text" width="60%" height={36} />
-                <Skeleton variant="text" width="80%" height={22} />
-              </>
+              <Stack spacing={0.75}>
+                <Skeleton
+                  variant="rounded"
+                  height={34}
+                  sx={{ width: 200, maxWidth: '90%', borderRadius: 1 }}
+                />
+                <Skeleton
+                  variant="rounded"
+                  height={20}
+                  sx={{ width: 280, maxWidth: '100%', borderRadius: 1 }}
+                />
+              </Stack>
             ) : (
               <>
                 <Typography

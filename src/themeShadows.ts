@@ -5,8 +5,10 @@ function makeShadow(
   blur: number,
   spread: number,
   alpha: number,
+  mode: PaletteMode,
 ): string {
-  return `0px ${y}px ${blur}px ${spread}px rgba(15, 23, 42, ${alpha})`
+  const rgb = mode === 'dark' ? '24, 22, 20' : '15, 23, 42'
+  return `0px ${y}px ${blur}px ${spread}px rgba(${rgb}, ${alpha})`
 }
 
 /**
@@ -26,11 +28,12 @@ export function createSoftShadows(mode: PaletteMode): Shadows {
     const keyAlpha = Number((baseAlpha * (0.65 + i / 38)).toFixed(3))
     const ambientAlpha = Number((baseAlpha * 0.45).toFixed(3))
 
-    return `${makeShadow(y, blur, spread, keyAlpha)}, ${makeShadow(
+    return `${makeShadow(y, blur, spread, keyAlpha, mode)}, ${makeShadow(
       Math.max(1, Math.round(y / 2)),
       Math.max(2, Math.round(blur / 2)),
       0,
       ambientAlpha,
+      mode,
     )}`
   })
 

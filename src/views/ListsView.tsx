@@ -4,10 +4,7 @@ import {
   Button,
   Chip,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Drawer,
   InputAdornment,
   ListItemIcon,
   ListItemText,
@@ -453,12 +450,47 @@ export default function ListsView() {
         New list
       </Button>
 
-      <Dialog open={editorOpen} onClose={closeEditor} fullWidth maxWidth="xs">
-        <form onSubmit={saveList}>
-          <DialogTitle>
-            {editorMode === 'create' ? 'New list' : 'Edit list'}
-          </DialogTitle>
-          <DialogContent>
+      <Drawer
+        anchor="bottom"
+        open={editorOpen}
+        onClose={closeEditor}
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: '92dvh',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <Box
+          component="form"
+          onSubmit={saveList}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            flex: 1,
+          }}
+        >
+          <Box
+            sx={{
+              px: 2,
+              pt: 2,
+              pb: 1.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              {editorMode === 'create' ? 'New list' : 'Edit list'}
+            </Typography>
+          </Box>
+          <Box sx={{ px: 2, py: 2, overflowY: 'auto', flex: 1 }}>
             <TextField
               autoFocus
               fullWidth
@@ -605,15 +637,27 @@ export default function ListsView() {
                     ? 'Resets every Monday at local midnight.'
                     : 'Resets on the 1st of each month.'}
             </Typography>
-          </DialogContent>
-          <DialogActions>
+          </Box>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              justifyContent: 'flex-end',
+              px: 2,
+              py: 2,
+              pb: 'calc(16px + env(safe-area-inset-bottom))',
+              borderTop: 1,
+              borderColor: 'divider',
+              flexShrink: 0,
+            }}
+          >
             <Button onClick={closeEditor}>Cancel</Button>
             <Button type="submit" variant="contained" color="primary">
               {editorMode === 'create' ? 'Create' : 'Save'}
             </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+          </Stack>
+        </Box>
+      </Drawer>
     </Box>
   )
 }

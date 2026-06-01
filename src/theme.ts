@@ -1,12 +1,46 @@
 import { createTheme, type PaletteMode } from '@mui/material'
 import { createSoftShadows } from './themeShadows'
 
-const primaryMain = '#FFA02E'
-const secondaryMain = '#49eeeb'
+const lightPrimary = {
+  main: '#FFA02E',
+  light: '#ffb84d',
+  dark: '#e8900a',
+  contrastText: '#1c1208',
+} as const
+
+const darkPrimary = {
+  main: '#56ab56',
+  light: '#6fbf6f',
+  dark: '#489648',
+  contrastText: '#f5f8f5',
+} as const
+
+const lightSecondary = {
+  main: '#49eeeb',
+  contrastText: '#0d2222',
+} as const
+
+const darkSecondary = {
+  main: '#8a9489',
+  contrastText: '#eceae6',
+} as const
+
 const lightSurfaceBorder = '#e0e0e0'
-const darkSurfaceBorder = '#262626'
+const darkSurfaceBorder = '#353330'
 const lightInputBorder = '#b0b0b0'
-const darkInputBorder = '#4d4d4d'
+const darkInputBorder = '#575350'
+const darkInputBorderHover = '#6e6a66'
+const darkInputFill = '#322f2c'
+const lightBackground = '#f5f5f3'
+const lightPaper = '#fafaf8'
+const darkBackground = '#201e1c'
+const darkPaper = '#2a2826'
+
+const darkText = {
+  primary: '#eceae6',
+  secondary: '#95918b',
+  disabled: '#5c5955',
+} as const
 
 const sharedTypography = {
   fontFamily: 'Inter, sans-serif',
@@ -17,35 +51,33 @@ const sharedTypography = {
   fontWeightBold: 600,
 } as const
 
-/** Dark text on orange `#FFA02E` (~WCAG AA for normal UI copy) */
-const primaryContrast = '#1c1208'
-const secondaryContrast = '#0d2222'
-
 export const createAppTheme = (mode: PaletteMode) =>
   createTheme({
     palette: {
       mode,
-      primary: {
-        main: primaryMain,
-        contrastText: primaryContrast,
-      },
-      secondary: {
-        main: secondaryMain,
-        contrastText: secondaryContrast,
-      },
+      primary: mode === 'dark' ? darkPrimary : lightPrimary,
+      secondary: mode === 'dark' ? darkSecondary : lightSecondary,
       ...(mode === 'dark'
         ? {
             divider: darkSurfaceBorder,
             background: {
-              default: '#162e14',
-              paper: '#162e14',
+              default: darkBackground,
+              paper: darkPaper,
+            },
+            text: darkText,
+            action: {
+              active: darkText.secondary,
+              hover: 'rgba(236, 234, 230, 0.06)',
+              selected: 'rgba(86, 171, 86, 0.14)',
+              disabled: darkText.disabled,
+              disabledBackground: 'rgba(236, 234, 230, 0.08)',
             },
           }
         : {
             divider: lightSurfaceBorder,
             background: {
-              default: '#f5f5f3',
-              paper: '#fafaf8',
+              default: lightBackground,
+              paper: lightPaper,
             },
           }),
     },
@@ -68,19 +100,46 @@ export const createAppTheme = (mode: PaletteMode) =>
       MuiInputBase: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === 'dark' ? 'transparent' : '#ffffff',
-            color: mode === 'dark' ? 'inherit' : '#1c1208',
+            backgroundColor: mode === 'dark' ? darkInputFill : '#ffffff',
+            color: mode === 'dark' ? darkText.primary : lightPrimary.contrastText,
           },
           input: {
             // Prevent iOS Safari/PWA auto-zoom on focus for text inputs.
             fontSize: '16px',
+            '&::placeholder': {
+              color: mode === 'dark' ? darkText.secondary : undefined,
+              opacity: mode === 'dark' ? 1 : undefined,
+            },
           },
         },
       },
       MuiOutlinedInput: {
         styleOverrides: {
+          root: {
+            ...(mode === 'dark' && {
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: darkInputBorderHover,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: darkPrimary.main,
+                borderWidth: 2,
+              },
+            }),
+          },
           notchedOutline: {
             borderColor: mode === 'dark' ? darkInputBorder : lightInputBorder,
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            ...(mode === 'dark' && {
+              color: darkText.secondary,
+              '&.Mui-focused': {
+                color: darkPrimary.main,
+              },
+            }),
           },
         },
       },

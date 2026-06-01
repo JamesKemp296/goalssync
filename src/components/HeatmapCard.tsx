@@ -9,7 +9,8 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, getContrastRatio, useTheme } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 
 type HeatmapCardProps = {
   /** Map of YYYY-MM-DD (local date) → total completions on that day. */
@@ -134,6 +135,55 @@ function buildRollingWeeks(
   return { weeks, rangeLabel }
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '')
+  const value = Number.parseInt(normalized, 16)
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+}
+
+function rgbToHex([r, g, b]: [number, number, number]): string {
+  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+}
+
+function blendOverBackground(
+  foreground: string,
+  background: string,
+  opacity: number,
+): string {
+  const fg = hexToRgb(foreground)
+  const bg = hexToRgb(background)
+  const blended = fg.map((channel, index) =>
+    Math.round(channel * opacity + bg[index]! * (1 - opacity)),
+  ) as [number, number, number]
+  return rgbToHex(blended)
+}
+
+function heatmapFillAlpha(intensity: number): number {
+  return 0.25 + intensity * 0.65
+}
+
+function heatmapCellBackground(
+  theme: Theme,
+  intensity: number,
+): string {
+  return blendOverBackground(
+    theme.palette.primary.main,
+    theme.palette.background.paper,
+    heatmapFillAlpha(intensity),
+  )
+}
+
+function heatmapCellTextColor(theme: Theme, intensity: number): string {
+  const background = heatmapCellBackground(theme, intensity)
+  const darkText = theme.palette.mode === 'dark' ? '#1a1917' : '#1c1208'
+  const lightText = '#f5f8f5'
+
+  return getContrastRatio(darkText, background) >=
+    getContrastRatio(lightText, background)
+    ? darkText
+    : lightText
+}
+
 function HeatmapCell({
   cell,
   max,
@@ -150,6 +200,7 @@ function HeatmapCell({
   const theme = useTheme()
   const { date, key, value, isFuture, isMonthStart } = cell
   const intensity = max === 0 ? 0 : Math.min(1, value / max)
+  const fillAlpha = heatmapFillAlpha(intensity)
   const tooltipTitle = completionTooltipTitle(date, value)
 
   return (
@@ -184,7 +235,7 @@ function HeatmapCell({
             ? 'transparent'
             : value === 0
               ? theme.palette.action.hover
-              : alpha(theme.palette.primary.main, 0.25 + intensity * 0.65),
+              : alpha(theme.palette.primary.main, fillAlpha),
           border: isFuture
             ? `1px dashed ${theme.palette.divider}`
             : isMonthStart
@@ -210,11 +261,11 @@ function HeatmapCell({
             lineHeight: 1,
             fontWeight: isMonthStart ? 800 : 600,
             color: isFuture
-              ? theme.palette.text.disabled
+              ? theme.palette.text.secondary
               : value > 0
-                ? theme.palette.primary.dark
-                : theme.palette.text.secondary,
-            opacity: isFuture ? 0.4 : 1,
+                ? heatmapCellTextColor(theme, intensity)
+                : theme.palette.text.primary,
+            opacity: isFuture ? 0.55 : 1,
           }}
         >
           {date.getDate()}

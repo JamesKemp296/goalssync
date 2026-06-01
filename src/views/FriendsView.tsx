@@ -8,10 +8,7 @@ import {
   CardActionArea,
   CircularProgress,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Drawer,
   LinearProgress,
   Stack,
   TextField,
@@ -237,7 +234,7 @@ export default function FriendsView() {
     }
   }
 
-  const closeAddDialog = () => {
+  const closeAddDrawer = () => {
     setAddOpen(false)
     setAddFeedback(null)
     setAddEmail('')
@@ -327,10 +324,39 @@ export default function FriendsView() {
         )}
       </Container>
 
-      <Dialog open={addOpen} onClose={closeAddDialog} fullWidth maxWidth="xs">
-        <form onSubmit={submitInvite}>
-          <DialogTitle>Add a friend</DialogTitle>
-          <DialogContent>
+      <Drawer
+        anchor="bottom"
+        open={addOpen}
+        onClose={closeAddDrawer}
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: '92dvh',
+            },
+          },
+        }}
+      >
+        <Box
+          component="form"
+          onSubmit={submitInvite}
+          sx={{ display: 'flex', flexDirection: 'column' }}
+        >
+          <Box
+            sx={{
+              px: 2,
+              pt: 2,
+              pb: 1.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Add a friend
+            </Typography>
+          </Box>
+          <Box sx={{ px: 2, py: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               We&apos;ll send them an invite by email. If they already have an
               account, you&apos;ll just become friends.
@@ -350,9 +376,20 @@ export default function FriendsView() {
                 {addFeedback.text}
               </Alert>
             )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={closeAddDialog} disabled={addLoading}>
+          </Box>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              justifyContent: 'flex-end',
+              px: 2,
+              py: 2,
+              pb: 'calc(16px + env(safe-area-inset-bottom))',
+              borderTop: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Button onClick={closeAddDrawer} disabled={addLoading}>
               Close
             </Button>
             <Button
@@ -363,9 +400,9 @@ export default function FriendsView() {
             >
               {addLoading ? 'Sending…' : 'Send invite'}
             </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+          </Stack>
+        </Box>
+      </Drawer>
     </Box>
   )
 }
