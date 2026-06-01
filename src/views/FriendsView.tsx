@@ -286,7 +286,7 @@ export default function FriendsView() {
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
-          pb: 12,
+          pb: 2,
         }}
       >
         {view.kind === 'friend-list' && (

@@ -243,7 +243,7 @@ export default function HomeView() {
   const hasTimedList = periodOverviewItems.length > 0
 
   return (
-    <Container maxWidth="sm" sx={{ pt: 3, pb: 10 }}>
+    <Container maxWidth="sm" sx={{ pt: 3, pb: 3 }}>
       <Stack spacing={2.5}>
         <Box
           sx={{
