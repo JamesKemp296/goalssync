@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import dayjs from 'dayjs'
 import {
@@ -18,12 +18,14 @@ import {
   Switch,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LoadingButton } from '@mui/lab'
-import { TbBell, TbCalendar, TbLogout2, TbMail, TbMoon } from 'react-icons/tb'
+import { TbBell, TbCalendar, TbLogout2, TbMail, TbMoon, TbX } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
+import CatRunGame from '../components/CatRunGame'
 import { useAppToast } from '../components/AppSnackbar'
 import { isLindseyUser } from '../lindseyUx'
 import { isDeveloperUser } from '../developerAccess'
@@ -45,6 +47,7 @@ type SettingsViewProps = {
 
 export default function SettingsView({ session }: SettingsViewProps) {
   const toast = useAppToast()
+  const theme = useTheme()
   const { mode, setMode } = useThemeMode()
   const metadata = session.user.user_metadata as
     | Record<string, unknown>
@@ -76,6 +79,16 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const lindseyUser = isLindseyUser(firstName.trim(), email)
   const catSvgSrc = lindseyUser ? '/icons/nutmeg.svg' : '/icons/ace.svg'
   const catName = lindseyUser ? 'Nutmeg' : 'Ace'
+  const gameColors = useMemo(
+    () => ({
+      background: theme.palette.background.default,
+      text: theme.palette.text.primary,
+      ground: theme.palette.divider,
+      obstacle: theme.palette.secondary.main,
+      accent: theme.palette.primary.main,
+    }),
+    [theme],
+  )
   const isDeveloper = isDeveloperUser(session.user.email)
 
   useEffect(() => {
@@ -482,51 +495,40 @@ export default function SettingsView({ session }: SettingsViewProps) {
         slotProps={{
           paper: {
             sx: {
-              height: '100dvh',
-              maxHeight: '100dvh',
-              borderRadius: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: 'background.default',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: '88dvh',
+              pb: 'calc(8px + env(safe-area-inset-bottom))',
             },
           },
         }}
       >
         <Box
-          role="button"
-          tabIndex={0}
-          aria-label={`Close ${catName}`}
-          onClick={() => setAvatarDrawerOpen(false)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault()
-              setAvatarDrawerOpen(false)
-            }
-          }}
           sx={{
-            width: '100%',
-            height: '100%',
+            px: 2,
+            pt: 2,
+            pb: 1,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            p: 3,
-            pb: 'calc(24px + env(safe-area-inset-bottom))',
-            pt: 'calc(24px + env(safe-area-inset-top))',
+            justifyContent: 'space-between',
+            borderBottom: 1,
+            borderColor: 'divider',
           }}
         >
-          <Box
-            component="img"
-            src={catSvgSrc}
-            alt={catName}
-            sx={{
-              width: 'min(100%, 100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
-              height: 'min(100%, 100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
-              objectFit: 'contain',
-            }}
-          />
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            Run, {catName}!
+          </Typography>
+          <IconButton
+            aria-label="Close game"
+            onClick={() => setAvatarDrawerOpen(false)}
+            edge="end"
+          >
+            <TbX size={20} />
+          </IconButton>
         </Box>
+        {avatarDrawerOpen ? (
+          <CatRunGame catSvgSrc={catSvgSrc} colors={gameColors} />
+        ) : null}
       </Drawer>
     </>
   )
