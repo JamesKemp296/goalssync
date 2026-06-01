@@ -33,6 +33,11 @@ import {
 } from '../todoProgress'
 import { partitionTodosByParent } from '../todoSubtasks'
 import { useBadgeUnlock } from '../components/BadgeUnlockProvider'
+import { useAppToast } from '../components/AppSnackbar'
+import {
+  LINDSEY_COMPLETION_TOAST,
+  rollLindseyCompletionToast,
+} from '../lindseyUx'
 
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
@@ -155,7 +160,17 @@ export default function TodosView() {
     setComposerOpen(false)
   }
 
-  const { evaluateBadges } = useBadgeUnlock()
+  const { evaluateBadges, isLindsey } = useBadgeUnlock()
+  const toast = useAppToast()
+
+  const maybeCelebrateCompletion = useCallback(() => {
+    if (rollLindseyCompletionToast(isLindsey)) {
+      toast(LINDSEY_COMPLETION_TOAST.title, {
+        icon: LINDSEY_COMPLETION_TOAST.Icon,
+        variant: 'success',
+      })
+    }
+  }, [isLindsey, toast])
 
   const advanceTodo = async (t: TodoRow) => {
     if (!supabase) return
@@ -170,7 +185,10 @@ export default function TodosView() {
       .from('todos')
       .update({ progress_count: nextProgress, is_complete, completed_at })
       .eq('id', t.id)
-    if (is_complete && !wasComplete) void evaluateBadges()
+    if (is_complete && !wasComplete) {
+      void evaluateBadges()
+      maybeCelebrateCompletion()
+    }
   }
 
   const advance = async (t: TodoRow) => {
@@ -192,7 +210,10 @@ export default function TodosView() {
       .from('todos')
       .update({ progress_count: nextProgress, is_complete, completed_at })
       .eq('id', sub.id)
-    if (is_complete && !wasComplete) void evaluateBadges()
+    if (is_complete && !wasComplete) {
+      void evaluateBadges()
+      maybeCelebrateCompletion()
+    }
 
     // Check if all siblings are now complete so we can advance the parent
     if (is_complete) {
@@ -223,8 +244,10 @@ export default function TodosView() {
               completed_at: parentCompletion.completed_at,
             })
             .eq('id', parent.id)
-          if (parentCompletion.is_complete && !parent.is_complete)
+          if (parentCompletion.is_complete && !parent.is_complete) {
             void evaluateBadges()
+            maybeCelebrateCompletion()
+          }
 
           // If the parent still has more increments to go, reset sub-tasks
           if (!parentCompletion.is_complete) {

@@ -15,6 +15,16 @@ export function rollShowLindseyUX(firstName: string, email: string): boolean {
   return isLindseyUser(firstName, email) && Math.random() < 0.2
 }
 
+/** Lindsey easter-egg: 1% roll when a todo is completed. */
+export const LINDSEY_COMPLETION_TOAST = {
+  title: 'Great work gorgeous',
+  Icon: TbHeartFilled,
+} as const
+
+export function rollLindseyCompletionToast(isLindsey: boolean): boolean {
+  return isLindsey && Math.random() < 0.01
+}
+
 /** Local display override for the earned `first_list` badge (not stored in DB). */
 export const LINDSEY_FIRST_LIST_BADGE = {
   title: 'Be gorgeous',

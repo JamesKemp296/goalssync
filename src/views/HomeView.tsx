@@ -10,6 +10,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import { normalizeTimeFrame } from '../timeFrames'
@@ -21,6 +22,7 @@ import HeatmapCard from '../components/HeatmapCard'
 import BestWorstInsights from '../components/BestWorstInsights'
 import RollupStats from '../components/RollupStats'
 import { useBadgeUnlock } from '../components/BadgeUnlockProvider'
+import NutmegCatIcon from '../components/NutmegCatIcon'
 import { isLindseyUser, rollShowLindseyUX } from '../lindseyUx'
 
 type ListRow = Database['public']['Tables']['lists']['Row']
@@ -283,18 +285,24 @@ export default function HomeView() {
             <Skeleton variant="circular" width={50} height={50} />
           ) : (
             <Avatar
-              src={showLindseyUX ? '/icons/nutmeg.svg' : undefined}
-              alt={showLindseyUX ? 'Nutmeg' : undefined}
+              aria-label={showLindseyUX ? 'Nutmeg' : undefined}
               sx={{
                 width: 50,
                 height: 50,
-                bgcolor: showLindseyUX ? 'transparent' : 'primary.main',
+                flexShrink: 0,
+                bgcolor: (theme) =>
+                  showLindseyUX
+                    ? alpha(theme.palette.primary.main, 0.22)
+                    : theme.palette.primary.main,
                 fontWeight: 900,
                 fontSize: 28,
-                '& img': { objectFit: 'contain', p: 0.25 },
               }}
             >
-              {showLindseyUX ? null : nameInitial}
+              {showLindseyUX ? (
+                <NutmegCatIcon width={38} height={38} aria-hidden />
+              ) : (
+                nameInitial
+              )}
             </Avatar>
           )}
         </Box>

@@ -28,6 +28,7 @@ type QueuedUnlock = BadgeAwardRow & {
 
 type BadgeUnlockContextType = {
   evaluateBadges: () => Promise<void>
+  isLindsey: boolean
 }
 
 const BadgeUnlockContext = createContext<BadgeUnlockContextType | null>(null)
@@ -159,7 +160,7 @@ export function BadgeUnlockProvider({ children }: BadgeUnlockProviderProps) {
   const Icon = def?.Icon
 
   return (
-    <BadgeUnlockContext.Provider value={{ evaluateBadges }}>
+    <BadgeUnlockContext.Provider value={{ evaluateBadges, isLindsey }}>
       {children}
       <Snackbar
         open={open && Boolean(current && def && display)}

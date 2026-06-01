@@ -103,6 +103,7 @@ export default AppSnackbar
 export type AppToastOptions = {
   subTitle?: string
   variant?: AppSnackbarVariant
+  icon?: IconType
 }
 
 export function showAppToast(
@@ -117,6 +118,7 @@ export function showAppToast(
         title={message}
         subTitle={options?.subTitle}
         variant={options?.variant ?? 'success'}
+        icon={options?.icon}
       />
     ),
   })
