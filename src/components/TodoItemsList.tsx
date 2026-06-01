@@ -474,6 +474,14 @@ export default function TodoItemsList({
                           flex: 1,
                           minWidth: 0,
                           fontWeight: 600,
+                          lineHeight: 1.35,
+                          maxHeight: 'calc(1.35em * 2)',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          overflowWrap: 'anywhere',
                           textDecoration: todo.is_complete
                             ? 'line-through'
                             : 'none',
@@ -481,7 +489,6 @@ export default function TodoItemsList({
                             ? 'text.secondary'
                             : 'text.primary',
                         }}
-                        noWrap
                       >
                         {todo.task}
                       </Typography>
