@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 import { Outlet, useLocation } from 'react-router-dom'
 import AppBottomNav from './AppBottomNav'
 import { BadgeUnlockProvider } from './BadgeUnlockProvider'
+import ToastProvider from './ToastProvider'
 
 export default function AppShell() {
   const location = useLocation()
@@ -32,21 +33,23 @@ export default function AppShell() {
         overflow: 'hidden',
       }}
     >
-      <BadgeUnlockProvider>
-        <Box
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            pb: 'calc(64px + env(safe-area-inset-bottom))',
-            overflowY: 'auto',
-          }}
-        >
-          <Outlet />
-        </Box>
-        <AppBottomNav />
-      </BadgeUnlockProvider>
+      <ToastProvider>
+        <BadgeUnlockProvider>
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              pb: 'calc(64px + env(safe-area-inset-bottom))',
+              overflowY: 'auto',
+            }}
+          >
+            <Outlet />
+          </Box>
+          <AppBottomNav />
+        </BadgeUnlockProvider>
+      </ToastProvider>
     </Box>
   )
 }

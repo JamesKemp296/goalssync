@@ -26,6 +26,7 @@ import { normalizeListIcon } from '../listIcons'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import { resetPasswordUrl } from '../appUrl'
+import { isDeveloperUser } from '../developerAccess'
 import { partitionTodosByParent } from '../todoSubtasks'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
@@ -41,7 +42,6 @@ type ViewMode =
   | { kind: 'friend-todos'; friend: Friend; list: ListRow }
 
 type Feedback = { type: 'success' | 'error'; text: string }
-const INVITE_ALLOWED_EMAIL = 'jamesdanielkemp@gmail.com'
 
 function profileToFriend(row: ProfileRow): Friend {
   const displayName =
@@ -194,7 +194,7 @@ export default function FriendsView() {
   const submitInvite = async (e: FormEvent) => {
     e.preventDefault()
     if (!supabase) return
-    if (meEmail !== INVITE_ALLOWED_EMAIL) return
+    if (!isDeveloperUser(meEmail)) return
     const email = addEmail.trim().toLowerCase()
     if (!email) return
     setAddLoading(true)
@@ -247,7 +247,7 @@ export default function FriendsView() {
     return view.list.title
   }, [view])
 
-  const canInvite = meEmail === INVITE_ALLOWED_EMAIL
+  const canInvite = isDeveloperUser(meEmail)
 
   const handleBack = () => {
     if (view.kind === 'friend-todos') {

@@ -110,6 +110,51 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
   if (profileError) throw new Error(profileError.message)
 }
 
+export async function sendTestPush(): Promise<{
+  delivered: number
+  title: string
+  body: string
+}> {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { data, error } = await supabase.functions.invoke('send-test-push', {
+    method: 'POST',
+  })
+
+  if (error) {
+    const ctx = error as { context?: Response }
+    if (ctx.context) {
+      try {
+        const payload = (await ctx.context.json()) as { error?: string }
+        if (payload.error) throw new Error(payload.error)
+      } catch (parseErr) {
+        if (parseErr instanceof Error && parseErr.message !== error.message) {
+          throw parseErr
+        }
+      }
+    }
+    throw new Error(error.message)
+  }
+
+  const result = data as {
+    delivered?: number
+    title?: string
+    body?: string
+    error?: string
+  } | null
+
+  if (result?.error) throw new Error(result.error)
+  if (!result?.delivered) {
+    throw new Error('Push delivery failed')
+  }
+
+  return {
+    delivered: result.delivered,
+    title: result.title ?? 'Test push',
+    body: result.body ?? '',
+  }
+}
+
 export async function fetchPushEnabled(userId: string): Promise<boolean> {
   if (!supabase) return false
   const { data } = await supabase

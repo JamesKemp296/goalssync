@@ -17,6 +17,7 @@
     "db:clear-lists": "npx supabase@2.95.3 db query -f supabase/scripts/clear_lists_for_migration_sync.sql --linked",
     "db:reset-migrations": "npx supabase@2.95.3 db query -f supabase/scripts/reset_migration_history.sql --linked",
     "deploy:function:invite-friend": "npx supabase functions deploy invite-friend",
+    "deploy:function:send-test-push": "npx supabase functions deploy send-test-push",
     "deploy:function:weekly-recap-push": "npx supabase functions deploy weekly-recap-push --no-verify-jwt",
     "invoke:function:weekly-recap-push": "node scripts/invoke-weekly-recap-push.mjs",
     "generate:vapid-keys": "web-push generate-vapid-keys"
@@ -29,6 +30,7 @@
     "@mui/x-date-pickers": "^9.0.2",
     "@supabase/supabase-js": "^2.78.0",
     "dayjs": "^1.11.20",
+    "notistack": "^3.0.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-icons": "^5.6.0",

@@ -4,7 +4,6 @@ import dayjs from 'dayjs'
 import {
   Box,
   Avatar,
-  Alert,
   Button,
   Container,
   Divider,
@@ -25,12 +24,15 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LoadingButton } from '@mui/lab'
 import { TbBell, TbCalendar, TbLogout2, TbMail, TbMoon } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
+import { useAppToast } from '../components/AppSnackbar'
 import { isLindseyUser } from '../lindseyUx'
+import { isDeveloperUser } from '../developerAccess'
 import {
   fetchPushEnabled,
   getPushPermission,
   isPushSupported,
   isVapidConfigured,
+  sendTestPush,
   subscribeToPush,
   unsubscribeFromPush,
 } from '../pushNotifications'
@@ -42,6 +44,7 @@ type SettingsViewProps = {
 }
 
 export default function SettingsView({ session }: SettingsViewProps) {
+  const toast = useAppToast()
   const { mode, setMode } = useThemeMode()
   const metadata = session.user.user_metadata as
     | Record<string, unknown>
@@ -61,18 +64,11 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const [draftBirthday, setDraftBirthday] = useState(birthday)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
-  const [profileFeedback, setProfileFeedback] = useState<{
-    type: 'success' | 'error'
-    message: string
-  } | null>(null)
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(true)
   const [pushToggling, setPushToggling] = useState(false)
-  const [pushFeedback, setPushFeedback] = useState<{
-    type: 'success' | 'error'
-    message: string
-  } | null>(null)
+  const [testPushLoading, setTestPushLoading] = useState(false)
   const displayName = [firstName.trim(), lastName.trim()]
     .filter(Boolean)
     .join(' ')
@@ -80,6 +76,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const lindseyUser = isLindseyUser(firstName.trim(), email)
   const catSvgSrc = lindseyUser ? '/icons/nutmeg.svg' : '/icons/ace.svg'
   const catName = lindseyUser ? 'Nutmeg' : 'Ace'
+  const isDeveloper = isDeveloperUser(session.user.email)
 
   useEffect(() => {
     let cancelled = false
@@ -110,37 +107,53 @@ export default function SettingsView({ session }: SettingsViewProps) {
 
   const handlePushToggle = async (checked: boolean) => {
     setPushToggling(true)
-    setPushFeedback(null)
     try {
       if (checked) {
         await subscribeToPush(session.user.id)
         setPushEnabled(true)
-        setPushFeedback({
-          type: 'success',
-          message: 'Weekly recap notifications enabled.',
+        toast('Notifications enabled', {
+          subTitle: 'Weekly recap every Monday at 7am.',
+          variant: 'success',
         })
       } else {
         await unsubscribeFromPush(session.user.id)
         setPushEnabled(false)
-        setPushFeedback({
-          type: 'success',
-          message: 'Weekly recap notifications disabled.',
+        toast('Notifications disabled', {
+          subTitle: 'Weekly recap pushes are turned off.',
+          variant: 'success',
         })
       }
     } catch (err) {
-      setPushFeedback({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Could not update notifications.',
+      toast('Could not update notifications', {
+        subTitle: err instanceof Error ? err.message : 'Something went wrong.',
+        variant: 'error',
       })
     } finally {
       setPushToggling(false)
     }
   }
 
+  const handleTestPush = async () => {
+    setTestPushLoading(true)
+    try {
+      const result = await sendTestPush()
+      toast(result.title, {
+        subTitle: result.body,
+        variant: 'success',
+      })
+    } catch (err) {
+      toast('Test push failed', {
+        subTitle: err instanceof Error ? err.message : 'Something went wrong.',
+        variant: 'error',
+      })
+    } finally {
+      setTestPushLoading(false)
+    }
+  }
+
   const saveProfile = async () => {
     if (!supabase) return
     setSavingProfile(true)
-    setProfileFeedback(null)
     const nextFirstName = draftFirstName.trim()
     const nextLastName = draftLastName.trim()
     const { error } = await supabase.auth.updateUser({
@@ -153,9 +166,9 @@ export default function SettingsView({ session }: SettingsViewProps) {
     })
     if (error) {
       setSavingProfile(false)
-      setProfileFeedback({
-        type: 'error',
-        message: error.message,
+      toast('Could not save profile', {
+        subTitle: error.message,
+        variant: 'error',
       })
       return
     }
@@ -168,9 +181,9 @@ export default function SettingsView({ session }: SettingsViewProps) {
       })
       if (profileError) {
         setSavingProfile(false)
-        setProfileFeedback({
-          type: 'error',
-          message: `Auth profile saved, but public profile sync failed: ${profileError.message}`,
+        toast('Profile partially saved', {
+          subTitle: `Public profile sync failed: ${profileError.message}`,
+          variant: 'error',
         })
         return
       }
@@ -180,9 +193,9 @@ export default function SettingsView({ session }: SettingsViewProps) {
     setLastName(nextLastName)
     setBirthday(draftBirthday)
     setIsEditingProfile(false)
-    setProfileFeedback({
-      type: 'success',
-      message: 'Profile saved.',
+    toast('Profile saved', {
+      subTitle: 'Your account details were updated.',
+      variant: 'success',
     })
   }
 
@@ -303,11 +316,6 @@ export default function SettingsView({ session }: SettingsViewProps) {
                   />
                 </ListItem>
               </List>
-              {pushFeedback ? (
-                <Alert severity={pushFeedback.type} sx={{ mx: 2, mb: 2 }}>
-                  {pushFeedback.message}
-                </Alert>
-              ) : null}
             </Paper>
           </Box>
           <Box>
@@ -339,7 +347,6 @@ export default function SettingsView({ session }: SettingsViewProps) {
                   setDraftFirstName(firstName)
                   setDraftLastName(lastName)
                   setDraftBirthday(birthday)
-                  setProfileFeedback(null)
                   setIsEditingProfile(true)
                 }}
               >
@@ -410,11 +417,6 @@ export default function SettingsView({ session }: SettingsViewProps) {
                     </Box>
                   </>
                 )}
-                {profileFeedback ? (
-                  <Alert severity={profileFeedback.type}>
-                    {profileFeedback.message}
-                  </Alert>
-                ) : null}
                 {isEditingProfile ? (
                   <LoadingButton
                     variant="contained"
@@ -429,6 +431,38 @@ export default function SettingsView({ session }: SettingsViewProps) {
               </Stack>
             </Paper>
           </Box>
+
+          {isDeveloper ? (
+            <Box>
+              <Typography
+                variant="overline"
+                sx={{ color: 'text.secondary', fontWeight: 600, pt: 1 }}
+              >
+                Developer
+              </Typography>
+              <Paper sx={{ p: 2 }}>
+                <Stack spacing={1.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    Send a test weekly-recap push to this device now (uses your
+                    latest weekly history when available).
+                  </Typography>
+                  <LoadingButton
+                    variant="outlined"
+                    loading={testPushLoading}
+                    disabled={!pushEnabled || testPushLoading}
+                    onClick={() => void handleTestPush()}
+                  >
+                    Send test push
+                  </LoadingButton>
+                  {!pushEnabled ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Enable weekly recap notifications above first.
+                    </Typography>
+                  ) : null}
+                </Stack>
+              </Paper>
+            </Box>
+          ) : null}
 
           <Button
             variant="contained"
