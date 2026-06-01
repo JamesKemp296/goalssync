@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import { TbEdit, TbPin, TbPlus, TbSearch, TbTrash } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
+import { useBadgeUnlock } from '../components/BadgeUnlockProvider'
 import ListCard from '../components/ListCard'
 import ListCardWrapper, {
   ListCardWrapperItem,
@@ -47,6 +48,7 @@ type ListStats = { total: number; completed: number }
 
 export default function ListsView() {
   const navigate = useNavigate()
+  const { evaluateBadges } = useBadgeUnlock()
   const swipe = useSwipeRevealGroup<number>()
   const [lists, setLists] = useState<ListRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -199,8 +201,7 @@ export default function ListsView() {
           nextTimeFrame === 'none' ? null : now.toISOString(),
         next_reset_at: nextResetAt ? nextResetAt.toISOString() : null,
       })
-      const { error: badgeError } = await supabase.rpc('evaluate_user_badges')
-      if (badgeError) console.error('evaluate_user_badges failed', badgeError)
+      await evaluateBadges()
     } else if (editingId != null) {
       const updates: Record<string, unknown> = {
         title: nextTitle,

@@ -20,6 +20,7 @@ import BadgesRail from '../components/BadgesRail'
 import HeatmapCard from '../components/HeatmapCard'
 import BestWorstInsights from '../components/BestWorstInsights'
 import RollupStats from '../components/RollupStats'
+import { useBadgeUnlock } from '../components/BadgeUnlockProvider'
 import { isLindseyUser, rollShowLindseyUX } from '../lindseyUx'
 
 type ListRow = Database['public']['Tables']['lists']['Row']
@@ -45,6 +46,7 @@ function toLocalDateKey(iso: string): string {
 }
 
 export default function HomeView() {
+  const { evaluateBadges } = useBadgeUnlock()
   const [loading, setLoading] = useState(true)
   const [firstName, setFirstName] = useState('there')
   const [email, setEmail] = useState('')
@@ -80,9 +82,8 @@ export default function HomeView() {
       }
 
       // Catch-up badge evaluation in case a previous client-side RPC failed
-      // (e.g. user toggled before the migration deployed). Errors logged only.
-      const { error: badgeError } = await supabase.rpc('evaluate_user_badges')
-      if (badgeError) console.error('evaluate_user_badges failed', badgeError)
+      // (e.g. user toggled before the migration deployed).
+      await evaluateBadges()
       if (cancelled) return
 
       const [listsRes, historyRes, badgesRes] = await Promise.all([
@@ -141,7 +142,7 @@ export default function HomeView() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [evaluateBadges])
 
   const periodOverviewItems = useMemo<PeriodOverviewItem[]>(() => {
     const todosByList = new Map<number, TodoRow[]>()

@@ -31,6 +31,8 @@ import {
   completionFromTargetEdit,
   nextProgressCount,
 } from '../todoProgress'
+import { partitionTodosByParent } from '../todoSubtasks'
+import { useBadgeUnlock } from '../components/BadgeUnlockProvider'
 
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
@@ -153,11 +155,7 @@ export default function TodosView() {
     setComposerOpen(false)
   }
 
-  const evaluateBadges = useCallback(async () => {
-    if (!supabase) return
-    const { error } = await supabase.rpc('evaluate_user_badges')
-    if (error) console.error('evaluate_user_badges failed', error)
-  }, [])
+  const { evaluateBadges } = useBadgeUnlock()
 
   const advanceTodo = async (t: TodoRow) => {
     if (!supabase) return
@@ -326,19 +324,14 @@ export default function TodosView() {
     navigate(backTo, { replace: true })
   }
 
-  const subTasksMap = useMemo(() => {
-    const map: Record<number, TodoRow[]> = {}
-    for (const t of todos) {
-      if (t.parent_id != null) {
-        ;(map[t.parent_id] ??= []).push(t)
-      }
-    }
-    return map
-  }, [todos])
+  const { parentTodos, subTasksMap } = useMemo(
+    () => partitionTodosByParent(todos),
+    [todos],
+  )
 
   const sortedTodos = useMemo(
-    () => sortTodos(todos.filter((t) => t.parent_id == null), sort),
-    [todos, sort],
+    () => sortTodos(parentTodos, sort),
+    [parentTodos, sort],
   )
 
   const menuItems = useMemo<AppHeaderMenuItem[]>(

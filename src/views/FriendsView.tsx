@@ -26,6 +26,7 @@ import { normalizeListIcon } from '../listIcons'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import { resetPasswordUrl } from '../appUrl'
+import { partitionTodosByParent } from '../todoSubtasks'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 type FriendshipRow = Database['public']['Tables']['friendships']['Row']
@@ -586,6 +587,10 @@ type FriendTodosPanelProps = {
 }
 
 function FriendTodosPanel({ list, todos, loading }: FriendTodosPanelProps) {
+  const { parentTodos, subTasksMap } = useMemo(
+    () => partitionTodosByParent(todos),
+    [todos],
+  )
   const total = todos.length
   const completed = todos.filter((t) => t.is_complete).length
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100)
@@ -623,7 +628,12 @@ function FriendTodosPanel({ list, todos, loading }: FriendTodosPanelProps) {
           No tasks yet.
         </Typography>
       ) : (
-        <TodoItemsList todos={todos} readOnly showDelete={false} />
+        <TodoItemsList
+          todos={parentTodos}
+          subTasksMap={subTasksMap}
+          readOnly
+          showDelete={false}
+        />
       )}
     </Stack>
   )
