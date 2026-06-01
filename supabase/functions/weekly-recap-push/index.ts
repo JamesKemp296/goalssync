@@ -14,7 +14,7 @@ import {
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+    'authorization, x-client-info, apikey, content-type, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -27,11 +27,9 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-function isAuthorized(req: Request, serviceKey: string): boolean {
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return false
-  const token = authHeader.replace(/^Bearer\s+/i, '')
-  return token === serviceKey
+function isAuthorized(req: Request, cronSecret: string | null): boolean {
+  if (!cronSecret) return false
+  return req.headers.get('x-cron-secret') === cronSecret
 }
 
 function localMondayPeriodKey(timezone: string, now = new Date()): string {
@@ -88,6 +86,7 @@ Deno.serve(async (req) => {
   const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY')
   const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY')
   const vapidSubject = Deno.env.get('VAPID_SUBJECT')
+  const cronSecret = Deno.env.get('CRON_SECRET')
   const appUrl =
     Deno.env.get('APP_URL')?.trim().replace(/\/$/, '') ??
     'https://www.goalssync.com'
@@ -95,7 +94,7 @@ Deno.serve(async (req) => {
   if (!url || !serviceKey) {
     return json(500, { error: 'Missing Supabase configuration' })
   }
-  if (!isAuthorized(req, serviceKey)) {
+  if (!isAuthorized(req, cronSecret ?? null)) {
     return json(401, { error: 'Unauthorized' })
   }
   if (!vapidPublic || !vapidPrivate || !vapidSubject) {

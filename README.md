@@ -183,19 +183,46 @@ Monday **7:00am in each user’s timezone**, users who opt in receive a push sum
      VAPID_PUBLIC_KEY=... \
      VAPID_PRIVATE_KEY=... \
      VAPID_SUBJECT=mailto:you@example.com \
-     APP_URL=https://www.goalssync.com
+     APP_URL=https://www.goalssync.com \
+     CRON_SECRET=...
    ```
 
-   (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are usually set automatically for Edge Functions.)
+   Generate `CRON_SECRET` with `openssl rand -base64 32`. The edge function only accepts calls that pass this value in the `x-cron-secret` header (cron + manual testing).
 
-4. **Run the migration** (`npm run db:push`) so `push_subscriptions`, `notification_log`, and the pg_cron job exist.
+4. **Run migrations** (`npm run db:push`) so push tables and the pg_cron job exist.
 
 5. **Vault secrets for cron** (Supabase dashboard → Project Settings → Vault, or SQL):
 
    - `weekly_recap_push_url` = `https://<project-ref>.supabase.co/functions/v1/weekly-recap-push`
-   - `service_role_key` = your service role key
+   - `anon_key` = your **anon / publishable** key (Settings → API)
+   - `cron_secret` = same value as `CRON_SECRET` above
 
-   The cron job runs every 15 minutes and POSTs to the edge function. Without these vault entries, `invoke_weekly_recap_push()` logs a notice and skips.
+   The cron job runs every 15 minutes. Without these vault entries, `invoke_weekly_recap_push()` logs a notice and skips.
+
+### Testing the edge function
+
+With JWT verify **OFF** (as in your dashboard), Supabase expects the **anon key** at the gateway. The function itself checks `x-cron-secret`.
+
+1. Set `CRON_SECRET` on Supabase (step 3) and add the same value to `.env`
+2. Redeploy: `npm run deploy:function:weekly-recap-push`
+3. Run:
+
+```bash
+npm run invoke:function:weekly-recap-push
+```
+
+Success looks like `{"sent":0,"skipped":N,"errors":0}`. Auth worked even if `sent` is 0 (normal outside Monday 7:00–7:14am in your timezone).
+
+Or with curl:
+
+```bash
+curl -X POST \
+  "https://YOUR_PROJECT_REF.supabase.co/functions/v1/weekly-recap-push" \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -H "apikey: YOUR_ANON_KEY" \
+  -H "x-cron-secret: YOUR_CRON_SECRET" \
+  -H "Content-Type: application/json"
+```
 
 ### User flow
 
