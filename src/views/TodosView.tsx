@@ -35,7 +35,7 @@ import {
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
 type TodosRouteState = { backTo?: string }
-type TodoSortKey = 'az' | 'recent' | 'completed' | 'notDone'
+type TodoSortKey = 'recent' | 'oldest' | 'az' | 'notDone'
 
 function sortTodos(todos: TodoRow[], sort: TodoSortKey): TodoRow[] {
   const copy = [...todos]
@@ -43,17 +43,14 @@ function sortTodos(todos: TodoRow[], sort: TodoSortKey): TodoRow[] {
     a.task.localeCompare(b.task, undefined, { sensitivity: 'base' })
 
   switch (sort) {
-    case 'az':
-      copy.sort(byTask)
-      break
     case 'recent':
       copy.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
       break
-    case 'completed':
-      copy.sort((a, b) => {
-        const byComplete = Number(b.is_complete) - Number(a.is_complete)
-        return byComplete !== 0 ? byComplete : byTask(a, b)
-      })
+    case 'oldest':
+      copy.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+      break
+    case 'az':
+      copy.sort(byTask)
       break
     case 'notDone':
       copy.sort((a, b) => {
@@ -79,7 +76,7 @@ export default function TodosView() {
   const [text, setText] = useState('')
   const [targetCount, setTargetCount] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [sort, setSort] = useState<TodoSortKey>('az')
+  const [sort, setSort] = useState<TodoSortKey>('recent')
   const [composerOpen, setComposerOpen] = useState(false)
 
   const loadTodos = useCallback(async () => {
@@ -434,19 +431,19 @@ export default function TodosView() {
             sx={{ mb: 1.5, overflowX: 'auto' }}
           >
             <Chip
-              label="A–Z"
-              color={sort === 'az' ? 'primary' : 'default'}
-              onClick={() => setSort('az')}
-            />
-            <Chip
-              label="Most recent"
+              label="Recent"
               color={sort === 'recent' ? 'primary' : 'default'}
               onClick={() => setSort('recent')}
             />
             <Chip
-              label="Completed"
-              color={sort === 'completed' ? 'primary' : 'default'}
-              onClick={() => setSort('completed')}
+              label="Oldest"
+              color={sort === 'oldest' ? 'primary' : 'default'}
+              onClick={() => setSort('oldest')}
+            />
+            <Chip
+              label="A–Z"
+              color={sort === 'az' ? 'primary' : 'default'}
+              onClick={() => setSort('az')}
             />
             <Chip
               label="Not done"

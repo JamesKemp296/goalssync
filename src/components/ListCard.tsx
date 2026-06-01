@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
-import {
-  Box,
-  Card,
-  CardActionArea,
-  IconButton,
-  LinearProgress,
-  Skeleton,
-  Typography,
-} from '@mui/material'
+import { Box, Card, LinearProgress, Skeleton, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { TbDotsVertical, TbPin, TbRefresh } from 'react-icons/tb'
+import { TbPin, TbRefresh } from 'react-icons/tb'
 import { getListIconComponent, normalizeListIcon } from '../listIcons'
 import {
   TIME_FRAME_SHORT,
@@ -18,6 +9,12 @@ import {
   formatResetCountdown,
   type ListTimeFrame,
 } from '../timeFrames'
+import SwipeActionButtons from './swipe/SwipeActionButtons'
+import type { SwipeAction } from './swipe/swipeActions'
+import { swipeActionButtonsWidth } from './swipe/swipeActions'
+import type { SwipeRevealGroup } from './swipe/useSwipeRevealGroup'
+
+type ListCardSwipeRow = ReturnType<SwipeRevealGroup<number>['bindRow']>
 
 type ListCardProps = {
   listId: number
@@ -28,15 +25,15 @@ type ListCardProps = {
   completed: number
   iconKey?: string | null
   isPinned?: boolean
-  showMenuButton?: boolean
-  onOpenMenu?: (el: HTMLElement) => void
   loading?: boolean
   timeFrame?: ListTimeFrame
   nextResetAt?: string | null
+  swipeActions?: SwipeAction[]
+  swipeRow?: ListCardSwipeRow
 }
 
 export default function ListCard({
-  listId,
+  listId: _listId,
   title,
   listColor,
   progress,
@@ -44,11 +41,11 @@ export default function ListCard({
   completed,
   iconKey,
   isPinned = false,
-  showMenuButton = false,
-  onOpenMenu,
   loading = false,
   timeFrame,
   nextResetAt = null,
+  swipeActions = [],
+  swipeRow,
 }: ListCardProps) {
   const [now, setNow] = useState(() => new Date())
   const showCadence = !!timeFrame && timeFrame !== 'none' && !loading
@@ -70,23 +67,26 @@ export default function ListCard({
     ? `${completed} / ${total} • ${resetLabel}`
     : `${completed} / ${total}`
 
+  const actionButtonsWidth = swipeActionButtonsWidth(swipeActions.length)
+
   const cardBody = (
     <Box
       sx={{
-        p: 2,
+        px: 1.5,
+        py: 1.25,
         display: 'flex',
         flexDirection: 'column',
-        gap: 1.5,
+        gap: 0,
         height: '100%',
         boxSizing: 'border-box',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
         <Box
           sx={{
             flexShrink: 0,
             aspectRatio: '1',
-            width: (theme) => theme.spacing(4),
+            width: (theme) => theme.spacing(3.5),
             borderRadius: 1.5,
             bgcolor: loading ? 'action.hover' : alpha(listColor, 0.16),
             color: listColor,
@@ -97,7 +97,7 @@ export default function ListCard({
           {loading ? (
             <Skeleton variant="rounded" width="50%" height="50%" />
           ) : (
-            <ListIcon size={20} />
+            <ListIcon size={18} />
           )}
         </Box>
 
@@ -108,6 +108,7 @@ export default function ListCard({
               alignItems: 'center',
               gap: 0.5,
               minWidth: 0,
+              minHeight: 22,
             }}
           >
             {loading ? (
@@ -119,55 +120,25 @@ export default function ListCard({
                   flex: 1,
                   minWidth: 0,
                   fontWeight: 600,
-                  lineHeight: 1.35,
+                  lineHeight: 1,
                 }}
               >
                 {title}
               </Typography>
             )}
-            {loading && showMenuButton ? (
-              <Skeleton
-                variant="circular"
-                width={34}
-                height={34}
-                sx={{ flexShrink: 0 }}
-              />
-            ) : !loading && (isPinned || (showMenuButton && onOpenMenu)) ? (
+            {!loading && isPinned ? (
               <Box
                 sx={{
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
+                  color: listColor,
                   flexShrink: 0,
+                  px: 0.5,
                 }}
+                aria-hidden
               >
-                {isPinned ? (
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: listColor,
-                      alignSelf: 'stretch',
-                      px: 0.5,
-                    }}
-                    aria-hidden
-                  >
-                    <TbPin size={14} />
-                  </Box>
-                ) : null}
-                {showMenuButton && onOpenMenu ? (
-                  <IconButton
-                    aria-label="List options"
-                    size="small"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      onOpenMenu(e.currentTarget)
-                    }}
-                  >
-                    <TbDotsVertical size={18} />
-                  </IconButton>
-                ) : null}
+                <TbPin size={14} />
               </Box>
             ) : null}
           </Box>
@@ -179,6 +150,7 @@ export default function ListCard({
               justifyContent: 'space-between',
               gap: 1,
               minWidth: 0,
+              minHeight: 20,
             }}
           >
             {loading ? (
@@ -219,42 +191,61 @@ export default function ListCard({
         </Box>
       </Box>
 
-      {loading ? (
-        <Skeleton variant="rounded" height={6} sx={{ borderRadius: 999 }} />
-      ) : (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <LinearProgress
-            variant="determinate"
-            value={progress}
-            aria-hidden
-            sx={{
-              flex: 1,
-              height: 6,
-              borderRadius: 999,
-              bgcolor: alpha(listColor, 0.16),
-              '& .MuiLinearProgress-bar': {
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mt: 0.25,
+          minHeight: 14,
+        }}
+      >
+        {loading ? (
+          <>
+            <Skeleton
+              variant="rounded"
+              height={5}
+              sx={{ flex: 1, borderRadius: 999 }}
+            />
+            <Skeleton variant="rounded" width={28} height={12} sx={{ flexShrink: 0 }} />
+          </>
+        ) : (
+          <>
+            <LinearProgress
+              variant="determinate"
+              value={progress}
+              aria-hidden
+              sx={{
+                flex: 1,
+                height: 5,
                 borderRadius: 999,
-                bgcolor: listColor,
-              },
-            }}
-          />
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              fontWeight: 700,
-              textAlign: 'right',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {progress}%
-          </Typography>
-        </Box>
-      )}
+                bgcolor: alpha(listColor, 0.16),
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 999,
+                  bgcolor: listColor,
+                },
+              }}
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontWeight: 700,
+                lineHeight: 1,
+                textAlign: 'right',
+                fontVariantNumeric: 'tabular-nums',
+                flexShrink: 0,
+              }}
+            >
+              {progress}%
+            </Typography>
+          </>
+        )}
+      </Box>
     </Box>
   )
 
-  return (
+  const card = (
     <Card
       sx={{
         borderRadius: 2,
@@ -262,19 +253,37 @@ export default function ListCard({
         borderColor: 'divider',
         boxShadow: 1,
         height: '100%',
+        position: 'relative',
+        zIndex: 1,
+        bgcolor: 'background.paper',
+        cursor: !loading && swipeRow ? 'pointer' : 'default',
+        ...(swipeRow?.surfaceSx ?? {}),
+      }}
+      {...(swipeRow?.pointerHandlers ?? {})}
+      onClick={swipeRow?.onContentClick}
+    >
+      {cardBody}
+    </Card>
+  )
+
+  if (loading || !swipeRow || swipeActions.length === 0) {
+    return card
+  }
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        borderRadius: 2,
+        overflow: 'hidden',
       }}
     >
-      {loading ? (
-        cardBody
-      ) : (
-        <CardActionArea
-          component={RouterLink}
-          to={`/lists/${listId}`}
-          sx={{ height: '100%' }}
-        >
-          {cardBody}
-        </CardActionArea>
-      )}
-    </Card>
+      <SwipeActionButtons
+        actions={swipeActions}
+        width={actionButtonsWidth}
+        inset={{ top: 0, bottom: 0 }}
+      />
+      {card}
+    </Box>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -7,10 +8,6 @@ import {
   Drawer,
   Fab,
   InputAdornment,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -21,6 +18,9 @@ import ListCard from '../components/ListCard'
 import ListCardWrapper, {
   ListCardWrapperItem,
 } from '../components/ListCardWrapper'
+import type { SwipeAction } from '../components/swipe/swipeActions'
+import { computeSwipeActionsWidth } from '../components/swipe/swipeActions'
+import { useSwipeRevealGroup } from '../components/swipe/useSwipeRevealGroup'
 import { supabase } from '../supabase'
 import type { Database } from '../database.types'
 import {
@@ -46,15 +46,13 @@ type SortKey = 'recent' | 'oldest' | 'az'
 type ListStats = { total: number; completed: number }
 
 export default function ListsView() {
+  const navigate = useNavigate()
+  const swipe = useSwipeRevealGroup<number>()
   const [lists, setLists] = useState<ListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey | null>('recent')
   const [pinnedOnly, setPinnedOnly] = useState(false)
-  const [menuFor, setMenuFor] = useState<{
-    id: number
-    el: HTMLElement
-  } | null>(null)
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
@@ -164,7 +162,7 @@ export default function ListsView() {
   }
 
   const openEditEditor = (list: ListRow) => {
-    setMenuFor(null)
+    swipe.closeOpenRow()
     setEditorMode('edit')
     setEditingId(list.id)
     setTitle(list.title)
@@ -223,13 +221,14 @@ export default function ListsView() {
 
   const remove = async (id: number) => {
     if (!supabase) return
+    swipe.closeOpenRow()
     await supabase.from('lists').delete().eq('id', id)
-    setMenuFor(null)
     void load()
   }
 
   const togglePin = async (row: ListRow) => {
     if (!supabase) return
+    swipe.closeOpenRow()
     const isPinned = Boolean(row.pinned_at)
     if (isPinned) {
       await supabase.from('lists').update({ pinned_at: null }).eq('id', row.id)
@@ -244,11 +243,32 @@ export default function ListsView() {
         .update({ pinned_at: new Date().toISOString() })
         .eq('id', row.id)
     }
-    setMenuFor(null)
     void load()
   }
 
-  const menuForList = menuFor ? lists.find((l) => l.id === menuFor.id) : null
+  const listSwipeActions = (list: ListRow): SwipeAction[] => [
+    {
+      key: 'pin',
+      label: list.pinned_at ? 'Unpin list' : 'Pin list',
+      icon: <TbPin size={20} />,
+      color: 'info',
+      onClick: () => void togglePin(list),
+    },
+    {
+      key: 'edit',
+      label: 'Edit list',
+      icon: <TbEdit size={20} />,
+      color: 'warning',
+      onClick: () => openEditEditor(list),
+    },
+    {
+      key: 'delete',
+      label: 'Delete list',
+      icon: <TbTrash size={20} />,
+      color: 'error',
+      onClick: () => void remove(list.id),
+    },
+  ]
 
   return (
     <Box
@@ -324,9 +344,49 @@ export default function ListsView() {
             pb: 2,
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.25 }}>
-            All Lists
-          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 0.5,
+              mb: 1.25,
+              minWidth: 0,
+              width: '100%',
+            }}
+          >
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ fontWeight: 800, flexShrink: 0, lineHeight: 1.25 }}
+            >
+              All Lists
+            </Typography>
+            <Typography
+              component="span"
+              variant="caption"
+              color="text.disabled"
+              aria-hidden
+              sx={{ flexShrink: 0, lineHeight: 1.25, userSelect: 'none' }}
+            >
+              ·
+            </Typography>
+            <Typography
+              component="span"
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              sx={{
+                flex: '1 1 0',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                fontWeight: 400,
+                lineHeight: 1.25,
+              }}
+            >
+              Swipe list from right to edit
+            </Typography>
+          </Box>
           {loading ? (
             <ListCardWrapper>
               {Array.from({ length: 3 }).map((_, idx) => (
@@ -339,7 +399,6 @@ export default function ListsView() {
                     progress={0}
                     total={0}
                     completed={0}
-                    showMenuButton
                   />
                 </ListCardWrapperItem>
               ))}
@@ -366,6 +425,12 @@ export default function ListsView() {
                   stats.total === 0
                     ? 0
                     : Math.round((stats.completed / stats.total) * 100)
+                const swipeActions = listSwipeActions(list)
+                const swipeRow = swipe.bindRow(
+                  list.id,
+                  computeSwipeActionsWidth(swipeActions.length),
+                  { onActivate: () => navigate(`/lists/${list.id}`) },
+                )
 
                 return (
                   <ListCardWrapperItem key={list.id}>
@@ -378,10 +443,10 @@ export default function ListsView() {
                       completed={stats.completed}
                       iconKey={list.icon}
                       isPinned={Boolean(list.pinned_at)}
-                      showMenuButton
                       timeFrame={normalizeTimeFrame(list.time_frame)}
                       nextResetAt={list.next_reset_at}
-                      onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
+                      swipeActions={swipeActions}
+                      swipeRow={swipeRow}
                     />
                   </ListCardWrapperItem>
                 )
@@ -390,36 +455,6 @@ export default function ListsView() {
           )}
         </Box>
       </Container>
-
-      <Menu
-        anchorEl={menuFor?.el ?? null}
-        open={Boolean(menuFor)}
-        onClose={() => setMenuFor(null)}
-      >
-        <MenuItem onClick={() => menuForList && openEditEditor(menuForList)}>
-          <ListItemIcon>
-            <TbEdit size={18} />
-          </ListItemIcon>
-          <ListItemText>Edit list</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => menuForList && void togglePin(menuForList)}>
-          <ListItemIcon>
-            <TbPin size={18} />
-          </ListItemIcon>
-          <ListItemText>
-            {menuForList?.pinned_at ? 'Unpin list' : 'Pin list'}
-          </ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => menuFor && void remove(menuFor.id)}
-          sx={{ color: 'error.main' }}
-        >
-          <ListItemIcon sx={{ color: 'error.main' }}>
-            <TbTrash size={18} />
-          </ListItemIcon>
-          <ListItemText>Delete list</ListItemText>
-        </MenuItem>
-      </Menu>
 
       <Fab
         color="primary"

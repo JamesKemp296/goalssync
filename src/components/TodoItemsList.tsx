@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Checkbox,
@@ -19,6 +19,13 @@ import {
   TbTrash,
   TbX,
 } from 'react-icons/tb'
+import SwipeActionButtons from './swipe/SwipeActionButtons'
+import type { SwipeAction } from './swipe/swipeActions'
+import {
+  computeSwipeActionsWidth,
+  swipeActionButtonsWidth,
+} from './swipe/swipeActions'
+import { useSwipeRevealGroup } from './swipe/useSwipeRevealGroup'
 
 const TARGET_MAX = 99
 
@@ -65,35 +72,7 @@ export default function TodoItemsList({
   readOnly = false,
   showDelete = true,
 }: TodoItemsListProps) {
-  const ACTION_BUTTON_WIDTH = 50
-  const ACTION_BUTTON_GAP = 8
-  const ACTION_REVEAL_GAP = 8
-
-  // ── shared swipe state ──────────────────────────────────────────────────
-  const pointerRef = useRef<{
-    todoId: number | null
-    pointerId: number | null
-    startX: number
-    startY: number
-    baseX: number
-    swiping: boolean
-    rowActionsWidth: number
-  }>({
-    todoId: null,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    baseX: 0,
-    swiping: false,
-    rowActionsWidth: 0,
-  })
-  const swipeSuppressRef = useRef<{ todoId: number | null; at: number }>({
-    todoId: null,
-    at: 0,
-  })
-  const [openTodoId, setOpenTodoId] = useState<number | null>(null)
-  const [dragTodoId, setDragTodoId] = useState<number | null>(null)
-  const [dragOffsetX, setDragOffsetX] = useState(0)
+  const swipe = useSwipeRevealGroup<number>()
 
   // ── edit state (parent todos) ───────────────────────────────────────────
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null)
@@ -115,32 +94,69 @@ export default function TodoItemsList({
   const [newSubtaskTargetCount, setNewSubtaskTargetCount] = useState(1)
   const [savingNewSubtask, setSavingNewSubtask] = useState(false)
 
+  const swipeDisabled = editingTodoId != null || editingSubId != null
+
   // ── action availability ─────────────────────────────────────────────────
   const hasEditAction = !readOnly && Boolean(onEdit)
   const hasDeleteAction = !readOnly && showDelete && Boolean(onRemove)
   const hasAddSubtaskAction = !readOnly && Boolean(onAddSubtask)
-
-  const parentActionCount =
-    (hasAddSubtaskAction ? 1 : 0) +
-    (hasEditAction ? 1 : 0) +
-    (hasDeleteAction ? 1 : 0)
-  const parentActionsWidth =
-    parentActionCount > 0
-      ? ACTION_BUTTON_WIDTH * parentActionCount +
-        ACTION_BUTTON_GAP * (parentActionCount - 1) +
-        ACTION_REVEAL_GAP
-      : 0
-
   const hasSubEditAction = !readOnly && Boolean(onEditSubtask)
   const hasSubDeleteAction = !readOnly && showDelete && Boolean(onRemoveSubtask)
-  const subActionCount =
-    (hasSubEditAction ? 1 : 0) + (hasSubDeleteAction ? 1 : 0)
-  const subActionsWidth =
-    subActionCount > 0
-      ? ACTION_BUTTON_WIDTH * subActionCount +
-        ACTION_BUTTON_GAP * (subActionCount - 1) +
-        ACTION_REVEAL_GAP
-      : 0
+
+  const buildParentActions = (todo: TodoListItem): SwipeAction[] => {
+    const actions: SwipeAction[] = []
+    if (hasAddSubtaskAction) {
+      actions.push({
+        key: 'add',
+        label: 'Add sub-task',
+        icon: <TbSubtask size={20} />,
+        color: 'info',
+        onClick: () => openAddSubtask(todo.id),
+      })
+    }
+    if (hasEditAction) {
+      actions.push({
+        key: 'edit',
+        label: 'Edit task',
+        icon: <TbEdit size={20} />,
+        color: 'warning',
+        onClick: () => beginEdit(todo),
+      })
+    }
+    if (hasDeleteAction) {
+      actions.push({
+        key: 'delete',
+        label: 'Delete task',
+        icon: <TbTrash size={20} />,
+        color: 'error',
+        onClick: () => onRemove?.(todo.id),
+      })
+    }
+    return actions
+  }
+
+  const buildSubActions = (sub: TodoListItem): SwipeAction[] => {
+    const actions: SwipeAction[] = []
+    if (hasSubEditAction) {
+      actions.push({
+        key: 'edit',
+        label: 'Edit task',
+        icon: <TbEdit size={20} />,
+        color: 'warning',
+        onClick: () => beginSubEdit(sub),
+      })
+    }
+    if (hasSubDeleteAction) {
+      actions.push({
+        key: 'delete',
+        label: 'Delete task',
+        icon: <TbTrash size={20} />,
+        color: 'error',
+        onClick: () => onRemoveSubtask?.(sub.id),
+      })
+    }
+    return actions
+  }
 
   // ── helpers ─────────────────────────────────────────────────────────────
   const clampTarget = (n: number) =>
@@ -148,9 +164,7 @@ export default function TodoItemsList({
 
   // ── parent edit ─────────────────────────────────────────────────────────
   const beginEdit = (todo: TodoListItem) => {
-    setOpenTodoId(null)
-    setDragTodoId(null)
-    setDragOffsetX(0)
+    swipe.closeOpenRow()
     setEditingTodoId(todo.id)
     setEditingValue(todo.task)
     setEditingTargetCount(Math.max(1, todo.target_count))
@@ -179,9 +193,7 @@ export default function TodoItemsList({
 
   // ── sub-task edit ───────────────────────────────────────────────────────
   const beginSubEdit = (sub: TodoListItem) => {
-    setOpenTodoId(null)
-    setDragTodoId(null)
-    setDragOffsetX(0)
+    swipe.closeOpenRow()
     setEditingSubId(sub.id)
     setEditingSubValue(sub.task)
     setEditingSubTargetCount(Math.max(1, sub.target_count))
@@ -213,9 +225,7 @@ export default function TodoItemsList({
 
   // ── add subtask ─────────────────────────────────────────────────────────
   const openAddSubtask = (parentId: number) => {
-    setOpenTodoId(null)
-    setDragTodoId(null)
-    setDragOffsetX(0)
+    swipe.closeOpenRow()
     setAddingSubtaskForId(parentId)
     setNewSubtaskValue('')
     setNewSubtaskTargetCount(1)
@@ -243,101 +253,6 @@ export default function TodoItemsList({
     } finally {
       setSavingNewSubtask(false)
     }
-  }
-
-  // ── swipe handlers ──────────────────────────────────────────────────────
-  const handlePointerDown = (
-    e: PointerEvent<HTMLDivElement>,
-    todoId: number,
-    rowIsOpen: boolean,
-    rowActionsWidth: number,
-  ) => {
-    if (rowActionsWidth === 0 || editingTodoId != null || editingSubId != null)
-      return
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    const target = e.target as HTMLElement
-    if (target.closest('[data-no-swipe="true"]')) return
-    pointerRef.current = {
-      todoId,
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      baseX: rowIsOpen ? -rowActionsWidth : 0,
-      swiping: false,
-      rowActionsWidth,
-    }
-    setDragTodoId(todoId)
-    setDragOffsetX(rowIsOpen ? -rowActionsWidth : 0)
-  }
-
-  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    const active = pointerRef.current
-    if (active.todoId == null || active.pointerId !== e.pointerId) return
-    const deltaX = e.clientX - active.startX
-    const deltaY = e.clientY - active.startY
-    if (!active.swiping) {
-      if (Math.abs(deltaX) < 8) return
-      if (Math.abs(deltaX) <= Math.abs(deltaY)) return
-      active.swiping = true
-    }
-    e.preventDefault()
-    const clamped = Math.max(
-      -active.rowActionsWidth,
-      Math.min(0, active.baseX + deltaX),
-    )
-    setDragOffsetX(clamped)
-  }
-
-  const finishSwipe = (e: PointerEvent<HTMLDivElement>) => {
-    const active = pointerRef.current
-    if (active.todoId == null || active.pointerId !== e.pointerId) return
-    const raw = active.baseX + (e.clientX - active.startX)
-    const finalOffset = Math.max(
-      -active.rowActionsWidth,
-      Math.min(0, raw),
-    )
-    const didSwipe = active.swiping
-    if (didSwipe) {
-      e.preventDefault()
-      const shouldOpen = finalOffset <= -active.rowActionsWidth * 0.45
-      setOpenTodoId(shouldOpen ? active.todoId : null)
-      swipeSuppressRef.current = { todoId: active.todoId, at: Date.now() }
-    }
-    pointerRef.current = {
-      todoId: null,
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      baseX: 0,
-      swiping: false,
-      rowActionsWidth: 0,
-    }
-    setDragTodoId(null)
-    setDragOffsetX(0)
-  }
-
-  const handleCardClick = (
-    todoId: number,
-    rowIsOpen: boolean,
-    target: EventTarget | null,
-    onToggleFn: (() => void) | null,
-  ) => {
-    if (editingTodoId != null || editingSubId != null) return
-    if (
-      target instanceof HTMLElement &&
-      target.closest('[data-no-toggle="true"]')
-    ) {
-      return
-    }
-    const recentlySwiped =
-      swipeSuppressRef.current.todoId === todoId &&
-      Date.now() - swipeSuppressRef.current.at < 300
-    if (recentlySwiped) return
-    if (rowIsOpen) {
-      setOpenTodoId(null)
-      return
-    }
-    onToggleFn?.()
   }
 
   // ── reusable edit form ──────────────────────────────────────────────────
@@ -539,109 +454,6 @@ export default function TodoItemsList({
     )
   }
 
-  // ── action button stack (reusable) ──────────────────────────────────────
-  const renderActionButtons = (
-    todo: TodoListItem,
-    opts: {
-      isSubtask: boolean
-      top: number
-      bottom: number
-      width: number
-    },
-  ) => {
-    if (opts.width === 0) return null
-    const showAdd = !opts.isSubtask && hasAddSubtaskAction
-    const showEdit = opts.isSubtask ? hasSubEditAction : hasEditAction
-    const showDelete = opts.isSubtask ? hasSubDeleteAction : hasDeleteAction
-
-    return (
-      <Stack
-        direction="row"
-        sx={{
-          position: 'absolute',
-          top: opts.top,
-          right: 0,
-          bottom: opts.bottom,
-          width: opts.width,
-          zIndex: 0,
-          justifyContent: 'flex-end',
-          gap: `${ACTION_BUTTON_GAP}px`,
-        }}
-      >
-        {showAdd ? (
-          <Box
-            component="button"
-            type="button"
-            aria-label="Add sub-task"
-            onClick={() => openAddSubtask(todo.id)}
-            data-no-toggle="true"
-            sx={{
-              width: ACTION_BUTTON_WIDTH,
-              border: 0,
-              borderRadius: 2,
-              cursor: 'pointer',
-              bgcolor: 'info.main',
-              color: 'info.contrastText',
-              display: 'grid',
-              placeItems: 'center',
-              '&:active': { opacity: 0.9 },
-            }}
-          >
-            <TbSubtask size={20} />
-          </Box>
-        ) : null}
-        {showEdit ? (
-          <Box
-            component="button"
-            type="button"
-            aria-label="Edit task"
-            onClick={() =>
-              opts.isSubtask ? beginSubEdit(todo) : beginEdit(todo)
-            }
-            data-no-toggle="true"
-            sx={{
-              width: ACTION_BUTTON_WIDTH,
-              border: 0,
-              borderRadius: 2,
-              cursor: 'pointer',
-              bgcolor: 'warning.main',
-              color: 'warning.contrastText',
-              display: 'grid',
-              placeItems: 'center',
-              '&:active': { opacity: 0.9 },
-            }}
-          >
-            <TbEdit size={20} />
-          </Box>
-        ) : null}
-        {showDelete ? (
-          <Box
-            component="button"
-            type="button"
-            aria-label="Delete task"
-            onClick={() =>
-              opts.isSubtask ? onRemoveSubtask?.(todo.id) : onRemove?.(todo.id)
-            }
-            data-no-toggle="true"
-            sx={{
-              width: ACTION_BUTTON_WIDTH,
-              border: 0,
-              borderRadius: 2,
-              cursor: 'pointer',
-              bgcolor: 'error.main',
-              color: 'error.contrastText',
-              display: 'grid',
-              placeItems: 'center',
-              '&:active': { opacity: 0.9 },
-            }}
-          >
-            <TbTrash size={20} />
-          </Box>
-        ) : null}
-      </Stack>
-    )
-  }
-
   // ── main render ─────────────────────────────────────────────────────────
   return (
     <Stack spacing={1.25}>
@@ -649,15 +461,19 @@ export default function TodoItemsList({
         const subTasks = subTasksMap[todo.id] ?? []
         const hasSubtasks = subTasks.length > 0
         const isAddingSubtask = addingSubtaskForId === todo.id
-
-        const rowIsOpen = openTodoId === todo.id
         const rowIsEditing = editingTodoId === todo.id
-        const translateX =
-          dragTodoId === todo.id
-            ? dragOffsetX
-            : rowIsOpen && parentActionsWidth > 0
-              ? -parentActionsWidth
-              : 0
+        const parentActions = buildParentActions(todo)
+        const parentSwipe = swipe.bindRow(
+          todo.id,
+          computeSwipeActionsWidth(parentActions.length),
+          {
+            disabled: swipeDisabled,
+            onActivate:
+              !hasSubtasks && !readOnly && onToggle
+                ? () => onToggle(todo.id)
+                : undefined,
+          },
+        )
 
         return (
           <Box key={todo.id}>
@@ -669,40 +485,18 @@ export default function TodoItemsList({
                 overflow: 'hidden',
               }}
             >
-              {renderActionButtons(todo, {
-                isSubtask: false,
-                top: 4,
-                bottom: 4,
-                width: parentActionsWidth - ACTION_REVEAL_GAP,
-              })}
+              <SwipeActionButtons
+                actions={parentActions}
+                width={swipeActionButtonsWidth(parentActions.length)}
+              />
 
               <Paper
                 elevation={1}
-                onPointerDown={(e) =>
-                  handlePointerDown(e, todo.id, rowIsOpen, parentActionsWidth)
-                }
-                onPointerMove={handlePointerMove}
-                onPointerUp={finishSwipe}
-                onPointerCancel={finishSwipe}
-                onClick={(e) =>
-                  handleCardClick(
-                    todo.id,
-                    rowIsOpen,
-                    e.target,
-                    !hasSubtasks && !readOnly && onToggle
-                      ? () => onToggle(todo.id)
-                      : null,
-                  )
-                }
+                {...parentSwipe.pointerHandlers}
+                onClick={parentSwipe.onContentClick}
                 sx={{
                   position: 'relative',
                   zIndex: 1,
-                  transform: `translateX(${translateX}px)`,
-                  transition:
-                    dragTodoId === todo.id
-                      ? 'none'
-                      : 'transform 180ms cubic-bezier(0.2, 0, 0, 1)',
-                  touchAction: parentActionsWidth > 0 ? 'pan-y' : 'auto',
                   display: 'flex',
                   alignItems: 'stretch',
                   gap: 1,
@@ -716,6 +510,7 @@ export default function TodoItemsList({
                     !rowIsEditing && !readOnly && !hasSubtasks && onToggle
                       ? 'pointer'
                       : 'default',
+                  ...parentSwipe.surfaceSx,
                 }}
               >
                 {rowIsEditing
@@ -750,14 +545,19 @@ export default function TodoItemsList({
                 }}
               >
                 {subTasks.map((sub) => {
-                  const subIsOpen = openTodoId === sub.id
                   const subIsEditing = editingSubId === sub.id
-                  const subTranslateX =
-                    dragTodoId === sub.id
-                      ? dragOffsetX
-                      : subIsOpen && subActionsWidth > 0
-                        ? -subActionsWidth
-                        : 0
+                  const subActions = buildSubActions(sub)
+                  const subSwipe = swipe.bindRow(
+                    sub.id,
+                    computeSwipeActionsWidth(subActions.length),
+                    {
+                      disabled: swipeDisabled,
+                      onActivate:
+                        !readOnly && onToggleSubtask
+                          ? () => onToggleSubtask(sub.id)
+                          : undefined,
+                    },
+                  )
 
                   return (
                     <Box
@@ -768,45 +568,19 @@ export default function TodoItemsList({
                         overflow: 'hidden',
                       }}
                     >
-                      {renderActionButtons(sub, {
-                        isSubtask: true,
-                        top: 3,
-                        bottom: 3,
-                        width: subActionsWidth - ACTION_REVEAL_GAP,
-                      })}
+                      <SwipeActionButtons
+                        actions={subActions}
+                        width={swipeActionButtonsWidth(subActions.length)}
+                        inset={{ top: 3, bottom: 3 }}
+                      />
 
                       <Paper
                         elevation={0}
-                        onPointerDown={(e) =>
-                          handlePointerDown(
-                            e,
-                            sub.id,
-                            subIsOpen,
-                            subActionsWidth,
-                          )
-                        }
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={finishSwipe}
-                        onPointerCancel={finishSwipe}
-                        onClick={(e) =>
-                          handleCardClick(
-                            sub.id,
-                            subIsOpen,
-                            e.target,
-                            !readOnly && onToggleSubtask
-                              ? () => onToggleSubtask(sub.id)
-                              : null,
-                          )
-                        }
+                        {...subSwipe.pointerHandlers}
+                        onClick={subSwipe.onContentClick}
                         sx={{
                           position: 'relative',
                           zIndex: 1,
-                          transform: `translateX(${subTranslateX}px)`,
-                          transition:
-                            dragTodoId === sub.id
-                              ? 'none'
-                              : 'transform 180ms cubic-bezier(0.2, 0, 0, 1)',
-                          touchAction: subActionsWidth > 0 ? 'pan-y' : 'auto',
                           display: 'flex',
                           alignItems: 'stretch',
                           gap: 1,
@@ -820,6 +594,7 @@ export default function TodoItemsList({
                             !subIsEditing && !readOnly && onToggleSubtask
                               ? 'pointer'
                               : 'default',
+                          ...subSwipe.surfaceSx,
                         }}
                       >
                         {subIsEditing
