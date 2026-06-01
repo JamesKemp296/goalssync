@@ -3,7 +3,6 @@ import type { Session } from '@supabase/supabase-js'
 import dayjs from 'dayjs'
 import {
   Box,
-  Avatar,
   Button,
   Container,
   Divider,
@@ -25,6 +24,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LoadingButton } from '@mui/lab'
 import { TbBell, TbCalendar, TbLogout2, TbMail, TbMoon, TbX } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
+import AvatarCatPeek from '../components/AvatarCatPeek'
 import CatRunGame from '../components/CatRunGame'
 import { useAppToast } from '../components/AppSnackbar'
 import { isLindseyUser } from '../lindseyUx'
@@ -218,23 +218,12 @@ export default function SettingsView({ session }: SettingsViewProps) {
       <Container maxWidth="sm" sx={{ py: 2 }}>
         <Stack spacing={1}>
           <Paper sx={{ p: 2, pb: 1, textAlign: 'center' }}>
-            <IconButton
+            <AvatarCatPeek
+              initial={initial}
+              lindseyUser={lindseyUser}
+              catName={catName}
               onClick={() => setAvatarDrawerOpen(true)}
-              aria-label={`View ${catName}`}
-              sx={{ p: 0, mx: 'auto', display: 'block' }}
-            >
-              <Avatar
-                sx={{
-                  width: 50,
-                  height: 50,
-                  bgcolor: 'primary.main',
-                  fontWeight: 900,
-                  fontSize: 28,
-                }}
-              >
-                {initial}
-              </Avatar>
-            </IconButton>
+            />
             <Typography variant="h6" noWrap>
               {displayName || email}
             </Typography>
