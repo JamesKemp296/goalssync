@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 
 type PointerState = {
   rowId: string | number | null
