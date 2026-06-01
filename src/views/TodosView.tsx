@@ -6,7 +6,7 @@ import {
   type FormEvent,
 } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Box, CircularProgress, Container } from '@mui/material'
+import { Box, Chip, CircularProgress, Container, Stack } from '@mui/material'
 import { TbCheckupList, TbList, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import TodoComposer from '../components/TodoComposer'
@@ -25,6 +25,35 @@ import {
 type TodoRow = Database['public']['Tables']['todos']['Row']
 type ListRow = Database['public']['Tables']['lists']['Row']
 type TodosRouteState = { backTo?: string }
+type TodoSortKey = 'az' | 'recent' | 'completed' | 'notDone'
+
+function sortTodos(todos: TodoRow[], sort: TodoSortKey): TodoRow[] {
+  const copy = [...todos]
+  const byTask = (a: TodoRow, b: TodoRow) =>
+    a.task.localeCompare(b.task, undefined, { sensitivity: 'base' })
+
+  switch (sort) {
+    case 'az':
+      copy.sort(byTask)
+      break
+    case 'recent':
+      copy.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      break
+    case 'completed':
+      copy.sort((a, b) => {
+        const byComplete = Number(b.is_complete) - Number(a.is_complete)
+        return byComplete !== 0 ? byComplete : byTask(a, b)
+      })
+      break
+    case 'notDone':
+      copy.sort((a, b) => {
+        const byComplete = Number(a.is_complete) - Number(b.is_complete)
+        return byComplete !== 0 ? byComplete : byTask(a, b)
+      })
+      break
+  }
+  return copy
+}
 
 export default function TodosView() {
   const { listId: listIdParam } = useParams<{ listId: string }>()
@@ -32,13 +61,15 @@ export default function TodosView() {
   const navigate = useNavigate()
   const listId = listIdParam ? Number(listIdParam) : NaN
   const routeState = location.state as TodosRouteState | null
-  const backTo = typeof routeState?.backTo === 'string' ? routeState.backTo : '/lists'
+  const backTo =
+    typeof routeState?.backTo === 'string' ? routeState.backTo : '/lists'
 
   const [list, setList] = useState<ListRow | null>(null)
   const [todos, setTodos] = useState<TodoRow[]>([])
   const [text, setText] = useState('')
   const [targetCount, setTargetCount] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [sort, setSort] = useState<TodoSortKey>('az')
 
   const loadTodos = useCallback(async () => {
     if (!supabase || !Number.isFinite(listId)) return
@@ -205,6 +236,8 @@ export default function TodosView() {
     navigate(backTo, { replace: true })
   }
 
+  const sortedTodos = useMemo(() => sortTodos(todos, sort), [todos, sort])
+
   const menuItems = useMemo<AppHeaderMenuItem[]>(
     () => [
       {
@@ -234,17 +267,33 @@ export default function TodosView() {
 
   if (loading || !list) {
     return (
-      <>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         <AppHeader title="Loading…" backTo={backTo} />
-        <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8, flex: 1 }}>
           <CircularProgress />
         </Box>
-      </>
+      </Box>
     )
   }
 
   return (
-    <>
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <AppHeader title={list.title} backTo={backTo} menuItems={menuItems} />
       <Box
         sx={{
@@ -254,26 +303,69 @@ export default function TodosView() {
       />
       <Container
         maxWidth="sm"
-        sx={{ pt: 3, pb: 'calc(24px + env(safe-area-inset-bottom))' }}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
       >
-        <TodoComposer
-          value={text}
-          onChange={setText}
-          targetCount={targetCount}
-          onTargetCountChange={setTargetCount}
-          onSubmit={add}
-          placeholder="What needs doing?"
-        />
-        <TodoItemsList
-          todos={todos}
-          onToggle={(id) => {
-            const todo = todos.find((item) => item.id === id)
-            if (todo) void advance(todo)
+        <Box
+          sx={{
+            pt: 2,
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            pb: 'calc(24px + env(safe-area-inset-bottom))',
           }}
-          onRemove={(id) => void remove(id)}
-          onEdit={(id, payload) => edit(id, payload)}
-        />
+        >
+          <TodoComposer
+            value={text}
+            onChange={setText}
+            targetCount={targetCount}
+            onTargetCountChange={setTargetCount}
+            onSubmit={add}
+            placeholder="What needs doing?"
+          />
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ mt: 1.5, mb: 1.5, overflowX: 'auto' }}
+          >
+            <Chip
+              label="A–Z"
+              color={sort === 'az' ? 'primary' : 'default'}
+              onClick={() => setSort('az')}
+            />
+            <Chip
+              label="Most recent"
+              color={sort === 'recent' ? 'primary' : 'default'}
+              onClick={() => setSort('recent')}
+            />
+            <Chip
+              label="Completed"
+              color={sort === 'completed' ? 'primary' : 'default'}
+              onClick={() => setSort('completed')}
+            />
+            <Chip
+              label="Not done"
+              color={sort === 'notDone' ? 'primary' : 'default'}
+              onClick={() => setSort('notDone')}
+            />
+          </Stack>
+          <TodoItemsList
+            todos={sortedTodos}
+            onToggle={(id) => {
+              const todo = todos.find((item) => item.id === id)
+              if (todo) void advance(todo)
+            }}
+            onRemove={(id) => void remove(id)}
+            onEdit={(id, payload) => edit(id, payload)}
+          />
+        </Box>
       </Container>
-    </>
+    </Box>
   )
 }
