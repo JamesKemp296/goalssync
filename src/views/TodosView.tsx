@@ -407,6 +407,7 @@ export default function TodosView() {
       />
       <Container
         maxWidth="sm"
+        disableGutters
         sx={{
           flex: 1,
           minHeight: 0,
@@ -417,14 +418,13 @@ export default function TodosView() {
       >
         <Box
           sx={{
-            pt: 2,
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
             overscrollBehavior: 'contain',
-            pb: 2,
           }}
         >
+          <Box sx={{ pt: 2, px: 2, pb: 2 }}>
           <Stack
             direction="row"
             spacing={1}
@@ -470,6 +470,7 @@ export default function TodosView() {
             onRemoveSubtask={(id) => void remove(id)}
             onEditSubtask={(id, payload) => edit(id, payload)}
           />
+          </Box>
         </Box>
       </Container>
 

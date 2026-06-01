@@ -284,8 +284,8 @@ export default function ListsView() {
       <AppHeader title="Lists" />
       <Container
         maxWidth="sm"
+        disableGutters
         sx={{
-          pt: 1,
           flex: 1,
           minHeight: 0,
           display: 'flex',
@@ -293,47 +293,49 @@ export default function ListsView() {
           overflow: 'hidden',
         }}
       >
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search lists"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <TbSearch size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ pt: 1, px: 2 }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search lists"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <TbSearch size={16} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ mb: 2 }}
+          />
 
-        <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: 'auto' }}>
-          <Chip
-            label="Recent"
-            color={sort === 'recent' ? 'primary' : 'default'}
-            onClick={() => toggleSort('recent')}
-          />
-          <Chip
-            label="Oldest"
-            color={sort === 'oldest' ? 'primary' : 'default'}
-            onClick={() => toggleSort('oldest')}
-          />
-          <Chip
-            label="A–Z"
-            color={sort === 'az' ? 'primary' : 'default'}
-            onClick={() => toggleSort('az')}
-          />
-          <Chip
-            icon={<TbPin size={16} />}
-            label="Pinned"
-            color={pinnedOnly ? 'primary' : 'default'}
-            onClick={() => setPinnedOnly((v) => !v)}
-          />
-        </Stack>
+          <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: 'auto' }}>
+            <Chip
+              label="Recent"
+              color={sort === 'recent' ? 'primary' : 'default'}
+              onClick={() => toggleSort('recent')}
+            />
+            <Chip
+              label="Oldest"
+              color={sort === 'oldest' ? 'primary' : 'default'}
+              onClick={() => toggleSort('oldest')}
+            />
+            <Chip
+              label="A–Z"
+              color={sort === 'az' ? 'primary' : 'default'}
+              onClick={() => toggleSort('az')}
+            />
+            <Chip
+              icon={<TbPin size={16} />}
+              label="Pinned"
+              color={pinnedOnly ? 'primary' : 'default'}
+              onClick={() => setPinnedOnly((v) => !v)}
+            />
+          </Stack>
+        </Box>
 
         <Box
           sx={{
@@ -341,9 +343,9 @@ export default function ListsView() {
             minHeight: 0,
             overflowY: 'auto',
             overscrollBehavior: 'contain',
-            pb: 2,
           }}
         >
+          <Box sx={{ px: 2, pb: 2 }}>
           <Box
             sx={{
               display: 'flex',
@@ -453,6 +455,7 @@ export default function ListsView() {
               })}
             </ListCardWrapper>
           )}
+          </Box>
         </Box>
       </Container>
 

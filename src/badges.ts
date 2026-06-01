@@ -155,15 +155,14 @@ export const BADGE_CATALOG: BadgeDefinition[] = [
     keyPrefix: 'consistency_30',
     kind: 'unique',
     title: 'Consistency',
-    howToEarn: 'Keep going for 30 list resets.',
+    howToEarn: 'Have a success rate of 90% for the past 30 days.',
     Icon: TbCalendarStats,
   },
   {
     keyPrefix: 'goal_getter',
     kind: 'unique',
     title: 'SEPTA Key Holder',
-    howToEarn:
-      'Over the last 30 days, finish everything on at least 9 out of every 10 list resets.',
+    howToEarn: 'Finish a daily list on 30 different days.',
     Icon: TbCreditCard,
   },
   {
@@ -390,12 +389,12 @@ export function getBadgeDetailText(
       }
     case 'consistency_30':
       return {
-        body: `${meta.periods ?? 30}+ list resets. Consistency badge earned.`,
+        body: `Last 30 days: ${meta.rate ?? 90}% success rate across your list cycles.`,
         footnote: dateStr ?? undefined,
       }
     case 'goal_getter':
       return {
-        body: `Last 30 days: finished everything on ${meta.rate ?? 90}% of your list cycles.`,
+        body: `${meta.count ?? 30} perfect days on your daily lists. SEPTA Key Holder.`,
         footnote: dateStr ?? undefined,
       }
     case 'flawless_month_': {
