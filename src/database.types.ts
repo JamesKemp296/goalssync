@@ -54,6 +54,7 @@ export interface Database {
         Row: {
           id: number
           list_id: number
+          parent_id: number | null
           task: string
           is_complete: boolean
           completed_at: string | null
@@ -64,6 +65,7 @@ export interface Database {
         Insert: {
           id?: number
           list_id: number
+          parent_id?: number | null
           task: string
           is_complete?: boolean
           completed_at?: string | null
@@ -74,6 +76,7 @@ export interface Database {
         Update: {
           id?: number
           list_id?: number
+          parent_id?: number | null
           task?: string
           is_complete?: boolean
           completed_at?: string | null

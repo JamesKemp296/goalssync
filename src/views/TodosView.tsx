@@ -6,8 +6,18 @@ import {
   type FormEvent,
 } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Box, Chip, CircularProgress, Container, Stack } from '@mui/material'
-import { TbCheckupList, TbList, TbTrashX } from 'react-icons/tb'
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Container,
+  Drawer,
+  Fab,
+  Stack,
+  Typography,
+} from '@mui/material'
+import { TbCheckupList, TbList, TbPlus, TbTrashX } from 'react-icons/tb'
 import AppHeader, { type AppHeaderMenuItem } from '../components/AppHeader'
 import TodoComposer from '../components/TodoComposer'
 import TodoItemsList, {
@@ -70,6 +80,7 @@ export default function TodosView() {
   const [targetCount, setTargetCount] = useState(1)
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<TodoSortKey>('az')
+  const [composerOpen, setComposerOpen] = useState(false)
 
   const loadTodos = useCallback(async () => {
     if (!supabase || !Number.isFinite(listId)) return
@@ -137,7 +148,12 @@ export default function TodosView() {
     })
     setText('')
     setTargetCount(1)
+    setComposerOpen(false)
     void loadTodos()
+  }
+
+  const closeComposer = () => {
+    setComposerOpen(false)
   }
 
   const evaluateBadges = useCallback(async () => {
@@ -146,7 +162,7 @@ export default function TodosView() {
     if (error) console.error('evaluate_user_badges failed', error)
   }, [])
 
-  const advance = async (t: TodoRow) => {
+  const advanceTodo = async (t: TodoRow) => {
     if (!supabase) return
     const nextProgress = nextProgressCount(t)
     const wasComplete = t.is_complete
@@ -157,13 +173,91 @@ export default function TodosView() {
     )
     await supabase
       .from('todos')
-      .update({
-        progress_count: nextProgress,
-        is_complete,
-        completed_at,
-      })
+      .update({ progress_count: nextProgress, is_complete, completed_at })
       .eq('id', t.id)
     if (is_complete && !wasComplete) void evaluateBadges()
+  }
+
+  const advance = async (t: TodoRow) => {
+    await advanceTodo(t)
+    void loadTodos()
+  }
+
+  const advanceSubtask = async (sub: TodoRow) => {
+    if (!supabase || sub.parent_id == null) return
+
+    const nextProgress = nextProgressCount(sub)
+    const wasComplete = sub.is_complete
+    const { is_complete, completed_at } = completionFromProgress(
+      nextProgress,
+      sub.target_count,
+      sub.completed_at,
+    )
+    await supabase
+      .from('todos')
+      .update({ progress_count: nextProgress, is_complete, completed_at })
+      .eq('id', sub.id)
+    if (is_complete && !wasComplete) void evaluateBadges()
+
+    // Check if all siblings are now complete so we can advance the parent
+    if (is_complete) {
+      const { data: siblings } = await supabase
+        .from('todos')
+        .select('id, is_complete')
+        .eq('parent_id', sub.parent_id)
+
+      // Use the just-written value for this sub-task
+      const allSiblingsDone = (siblings ?? []).every((s) =>
+        s.id === sub.id ? is_complete : s.is_complete,
+      )
+
+      if (allSiblingsDone) {
+        const parent = todos.find((t) => t.id === sub.parent_id)
+        if (parent) {
+          const parentNextProgress = nextProgressCount(parent)
+          const parentCompletion = completionFromProgress(
+            parentNextProgress,
+            parent.target_count,
+            parent.completed_at,
+          )
+          await supabase
+            .from('todos')
+            .update({
+              progress_count: parentNextProgress,
+              is_complete: parentCompletion.is_complete,
+              completed_at: parentCompletion.completed_at,
+            })
+            .eq('id', parent.id)
+          if (parentCompletion.is_complete && !parent.is_complete)
+            void evaluateBadges()
+
+          // If the parent still has more increments to go, reset sub-tasks
+          if (!parentCompletion.is_complete) {
+            await supabase
+              .from('todos')
+              .update({
+                progress_count: 0,
+                is_complete: false,
+                completed_at: null,
+              })
+              .eq('parent_id', parent.id)
+          }
+        }
+      }
+    }
+
+    void loadTodos()
+  }
+
+  const addSubtask = async (parentId: number, payload: TodoEditPayload) => {
+    if (!supabase || !Number.isFinite(listId)) return
+    const target = Math.min(99, Math.max(1, payload.target_count))
+    await supabase.from('todos').insert({
+      list_id: listId,
+      parent_id: parentId,
+      task: payload.task.trim(),
+      target_count: target,
+    })
     void loadTodos()
   }
 
@@ -203,9 +297,8 @@ export default function TodosView() {
     const db = supabase
     const now = new Date().toISOString()
     if (complete) {
-      const rows = todos
       await Promise.all(
-        rows.map((t) =>
+        todos.map((t) =>
           db
             .from('todos')
             .update({
@@ -236,7 +329,20 @@ export default function TodosView() {
     navigate(backTo, { replace: true })
   }
 
-  const sortedTodos = useMemo(() => sortTodos(todos, sort), [todos, sort])
+  const subTasksMap = useMemo(() => {
+    const map: Record<number, TodoRow[]> = {}
+    for (const t of todos) {
+      if (t.parent_id != null) {
+        ;(map[t.parent_id] ??= []).push(t)
+      }
+    }
+    return map
+  }, [todos])
+
+  const sortedTodos = useMemo(
+    () => sortTodos(todos.filter((t) => t.parent_id == null), sort),
+    [todos, sort],
+  )
 
   const menuItems = useMemo<AppHeaderMenuItem[]>(
     () => [
@@ -292,6 +398,7 @@ export default function TodosView() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
       <AppHeader title={list.title} backTo={backTo} menuItems={menuItems} />
@@ -318,21 +425,13 @@ export default function TodosView() {
             minHeight: 0,
             overflowY: 'auto',
             overscrollBehavior: 'contain',
-            pb: 'calc(24px + env(safe-area-inset-bottom))',
+            pb: 2,
           }}
         >
-          <TodoComposer
-            value={text}
-            onChange={setText}
-            targetCount={targetCount}
-            onTargetCountChange={setTargetCount}
-            onSubmit={add}
-            placeholder="What needs doing?"
-          />
           <Stack
             direction="row"
             spacing={1}
-            sx={{ mt: 1.5, mb: 1.5, overflowX: 'auto' }}
+            sx={{ mb: 1.5, overflowX: 'auto' }}
           >
             <Chip
               label="A–Z"
@@ -357,15 +456,114 @@ export default function TodosView() {
           </Stack>
           <TodoItemsList
             todos={sortedTodos}
+            subTasksMap={subTasksMap}
             onToggle={(id) => {
               const todo = todos.find((item) => item.id === id)
               if (todo) void advance(todo)
             }}
             onRemove={(id) => void remove(id)}
             onEdit={(id, payload) => edit(id, payload)}
+            onAddSubtask={(parentId, payload) =>
+              void addSubtask(parentId, payload)
+            }
+            onToggleSubtask={(id) => {
+              const sub = todos.find((item) => item.id === id)
+              if (sub) void advanceSubtask(sub)
+            }}
+            onRemoveSubtask={(id) => void remove(id)}
+            onEditSubtask={(id, payload) => edit(id, payload)}
           />
         </Box>
       </Container>
+
+      <Fab
+        color="primary"
+        aria-label="Add task"
+        onClick={() => setComposerOpen(true)}
+        sx={{
+          position: 'fixed',
+          right: 20,
+          bottom: 'calc(64px + env(safe-area-inset-bottom) + 16px)',
+          zIndex: (theme) => theme.zIndex.appBar + 1,
+        }}
+      >
+        <TbPlus size={24} />
+      </Fab>
+
+      <Drawer
+        anchor="bottom"
+        open={composerOpen}
+        onClose={closeComposer}
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: '92dvh',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <Box
+          component="form"
+          onSubmit={add}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            flex: 1,
+          }}
+        >
+          <Box
+            sx={{
+              px: 2,
+              pt: 2,
+              pb: 1.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              New task
+            </Typography>
+          </Box>
+          <Box sx={{ px: 2, py: 2, overflowY: 'auto', flex: 1 }}>
+            <TodoComposer
+              value={text}
+              onChange={setText}
+              targetCount={targetCount}
+              onTargetCountChange={setTargetCount}
+              placeholder="What needs doing?"
+            />
+          </Box>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              justifyContent: 'flex-end',
+              px: 2,
+              py: 2,
+              pb: 'calc(16px + env(safe-area-inset-bottom))',
+              borderTop: 1,
+              borderColor: 'divider',
+              flexShrink: 0,
+            }}
+          >
+            <Button onClick={closeComposer}>Cancel</Button>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={!text.trim()}
+            >
+              Create
+            </Button>
+          </Stack>
+        </Box>
+      </Drawer>
     </Box>
   )
 }
