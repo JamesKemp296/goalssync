@@ -230,14 +230,13 @@ export default function HomeView() {
     email.trim()[0] ??
     '?'
   ).toUpperCase()
-  const catSvgSrc = showLindseyUX ? '/nutmeg.svg' : '/ace.svg'
 
   useEffect(() => {
     const faviconLink =
       document.querySelector<HTMLLinkElement>('link[rel="icon"]')
     if (!faviconLink) return
-    faviconLink.href = catSvgSrc
-  }, [catSvgSrc])
+    faviconLink.href = showLindseyUX ? '/icons/nutmeg.png' : '/icons/ace.png'
+  }, [showLindseyUX])
 
   const totalListCount = lists.length
   const hasAnyList = totalListCount > 0
@@ -284,7 +283,7 @@ export default function HomeView() {
             <Skeleton variant="circular" width={50} height={50} />
           ) : (
             <Avatar
-              src={showLindseyUX ? '/nutmeg.svg' : undefined}
+              src={showLindseyUX ? '/icons/nutmeg.svg' : undefined}
               alt={showLindseyUX ? 'Nutmeg' : undefined}
               sx={{
                 width: 50,

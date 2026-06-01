@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import dayjs from 'dayjs'
 import {
@@ -8,6 +8,8 @@ import {
   Button,
   Container,
   Divider,
+  Drawer,
+  IconButton,
   ListItem,
   List,
   ListItemIcon,
@@ -21,8 +23,17 @@ import {
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LoadingButton } from '@mui/lab'
-import { TbCalendar, TbLogout2, TbMail, TbMoon } from 'react-icons/tb'
+import { TbBell, TbCalendar, TbLogout2, TbMail, TbMoon } from 'react-icons/tb'
 import AppHeader from '../components/AppHeader'
+import { isLindseyUser } from '../lindseyUx'
+import {
+  fetchPushEnabled,
+  getPushPermission,
+  isPushSupported,
+  isVapidConfigured,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../pushNotifications'
 import { supabase } from '../supabase'
 import { useThemeMode } from '../components/ThemeModeProvider'
 
@@ -54,10 +65,77 @@ export default function SettingsView({ session }: SettingsViewProps) {
     type: 'success' | 'error'
     message: string
   } | null>(null)
+  const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(true)
+  const [pushToggling, setPushToggling] = useState(false)
+  const [pushFeedback, setPushFeedback] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
   const displayName = [firstName.trim(), lastName.trim()]
     .filter(Boolean)
     .join(' ')
   const initial = (displayName[0] ?? email[0] ?? '?').toUpperCase()
+  const lindseyUser = isLindseyUser(firstName.trim(), email)
+  const catSvgSrc = lindseyUser ? '/icons/nutmeg.svg' : '/icons/ace.svg'
+  const catName = lindseyUser ? 'Nutmeg' : 'Ace'
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setPushLoading(true)
+      const enabled = await fetchPushEnabled(session.user.id)
+      if (!cancelled) {
+        setPushEnabled(enabled)
+        setPushLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [session.user.id])
+
+  const pushSupported = isPushSupported()
+  const pushPermission = getPushPermission()
+  const pushConfigured = isVapidConfigured()
+  const pushBlocked = pushPermission === 'denied'
+  const pushHelperText = !pushSupported
+    ? 'Not supported in this browser.'
+    : !pushConfigured
+      ? 'Push is not configured for this environment.'
+      : pushBlocked
+        ? 'Notifications are blocked in browser settings.'
+        : 'Monday 7am recap of your weekly lists.'
+
+  const handlePushToggle = async (checked: boolean) => {
+    setPushToggling(true)
+    setPushFeedback(null)
+    try {
+      if (checked) {
+        await subscribeToPush(session.user.id)
+        setPushEnabled(true)
+        setPushFeedback({
+          type: 'success',
+          message: 'Weekly recap notifications enabled.',
+        })
+      } else {
+        await unsubscribeFromPush(session.user.id)
+        setPushEnabled(false)
+        setPushFeedback({
+          type: 'success',
+          message: 'Weekly recap notifications disabled.',
+        })
+      }
+    } catch (err) {
+      setPushFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Could not update notifications.',
+      })
+    } finally {
+      setPushToggling(false)
+    }
+  }
 
   const saveProfile = async () => {
     if (!supabase) return
@@ -114,18 +192,23 @@ export default function SettingsView({ session }: SettingsViewProps) {
       <Container maxWidth="sm" sx={{ py: 2 }}>
         <Stack spacing={1}>
           <Paper sx={{ p: 2, pb: 1, textAlign: 'center' }}>
-            <Avatar
-              sx={{
-                width: 50,
-                height: 50,
-                mx: 'auto',
-                bgcolor: 'primary.main',
-                fontWeight: 900,
-                fontSize: 28,
-              }}
+            <IconButton
+              onClick={() => setAvatarDrawerOpen(true)}
+              aria-label={`View ${catName}`}
+              sx={{ p: 0, mx: 'auto', display: 'block' }}
             >
-              {initial}
-            </Avatar>
+              <Avatar
+                sx={{
+                  width: 50,
+                  height: 50,
+                  bgcolor: 'primary.main',
+                  fontWeight: 900,
+                  fontSize: 28,
+                }}
+              >
+                {initial}
+              </Avatar>
+            </IconButton>
             <Typography variant="h6" noWrap>
               {displayName || email}
             </Typography>
@@ -181,6 +264,50 @@ export default function SettingsView({ session }: SettingsViewProps) {
                   />
                 </ListItem>
               </List>
+            </Paper>
+          </Box>
+          <Box>
+            <Typography
+              variant="overline"
+              sx={{ color: 'text.secondary', fontWeight: 600, pt: 1 }}
+            >
+              Notifications
+            </Typography>
+            <Paper>
+              <List>
+                <ListItem
+                  secondaryAction={
+                    <Switch
+                      edge="end"
+                      checked={pushEnabled}
+                      disabled={
+                        pushLoading ||
+                        pushToggling ||
+                        !pushSupported ||
+                        !pushConfigured ||
+                        pushBlocked
+                      }
+                      onChange={(_, checked) => void handlePushToggle(checked)}
+                      slotProps={{
+                        input: { 'aria-label': 'Toggle weekly recap notifications' },
+                      }}
+                    />
+                  }
+                >
+                  <ListItemIcon>
+                    <TbBell size={18} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Weekly recap (Monday 7am)"
+                    secondary={pushHelperText}
+                  />
+                </ListItem>
+              </List>
+              {pushFeedback ? (
+                <Alert severity={pushFeedback.type} sx={{ mx: 2, mb: 2 }}>
+                  {pushFeedback.message}
+                </Alert>
+              ) : null}
             </Paper>
           </Box>
           <Box>
@@ -313,6 +440,60 @@ export default function SettingsView({ session }: SettingsViewProps) {
           </Button>
         </Stack>
       </Container>
+
+      <Drawer
+        anchor="bottom"
+        open={avatarDrawerOpen}
+        onClose={() => setAvatarDrawerOpen(false)}
+        slotProps={{
+          paper: {
+            sx: {
+              height: '100dvh',
+              maxHeight: '100dvh',
+              borderRadius: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'background.default',
+            },
+          },
+        }}
+      >
+        <Box
+          role="button"
+          tabIndex={0}
+          aria-label={`Close ${catName}`}
+          onClick={() => setAvatarDrawerOpen(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              setAvatarDrawerOpen(false)
+            }
+          }}
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            p: 3,
+            pb: 'calc(24px + env(safe-area-inset-bottom))',
+            pt: 'calc(24px + env(safe-area-inset-top))',
+          }}
+        >
+          <Box
+            component="img"
+            src={catSvgSrc}
+            alt={catName}
+            sx={{
+              width: 'min(100%, 100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+              height: 'min(100%, 100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+              objectFit: 'contain',
+            }}
+          />
+        </Box>
+      </Drawer>
     </>
   )
 }

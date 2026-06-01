@@ -158,6 +158,49 @@ create policy "todos in own lists" on todos
 
 Adjust the migration if your old policies or column names differ.
 
+## Push notifications (weekly recap)
+
+Monday **7:00am in each user’s timezone**, users who opt in receive a push summarizing last week’s weekly lists.
+
+### One-time setup
+
+1. **Generate VAPID keys** (requires Node 20 — run `nvm use` in this repo first)
+
+   ```bash
+   nvm use
+   npm run generate:vapid-keys
+   ```
+
+   If you see `Unknown encoding: base64url`, your shell is on an older Node than the project expects.
+
+2. **Client env** (`.env` and Vercel): add `VITE_VAPID_PUBLIC_KEY` from the pair above (see `.env.example`).
+
+3. **Deploy the edge function** and set Supabase secrets:
+
+   ```bash
+   npm run deploy:function:weekly-recap-push
+   npx supabase secrets set \
+     VAPID_PUBLIC_KEY=... \
+     VAPID_PRIVATE_KEY=... \
+     VAPID_SUBJECT=mailto:you@example.com \
+     APP_URL=https://www.goalssync.com
+   ```
+
+   (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are usually set automatically for Edge Functions.)
+
+4. **Run the migration** (`npm run db:push`) so `push_subscriptions`, `notification_log`, and the pg_cron job exist.
+
+5. **Vault secrets for cron** (Supabase dashboard → Project Settings → Vault, or SQL):
+
+   - `weekly_recap_push_url` = `https://<project-ref>.supabase.co/functions/v1/weekly-recap-push`
+   - `service_role_key` = your service role key
+
+   The cron job runs every 15 minutes and POSTs to the edge function. Without these vault entries, `invoke_weekly_recap_push()` logs a notice and skips.
+
+### User flow
+
+Users enable **Weekly recap (Monday 7am)** in Settings. iOS requires installing the PWA to the home screen before push works.
+
 ## Routes
 
 - `/login` — sign in / sign up

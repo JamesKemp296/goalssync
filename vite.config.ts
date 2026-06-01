@@ -6,8 +6,17 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
-      includeAssets: ['ace.svg'],
+      injectRegister: 'auto',
+      includeAssets: [
+        'icons/ace.png',
+        'icons/nutmeg.png',
+        'icons/ace.svg',
+        'icons/nutmeg.svg',
+      ],
       manifest: {
         name: 'Goals Sync',
         short_name: 'Goals Sync',
@@ -19,18 +28,21 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: '/ace.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: '/icons/ace.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/ace.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: '/icons/ace.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
+      },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
     }),
   ],

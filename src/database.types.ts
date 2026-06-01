@@ -94,6 +94,7 @@ export interface Database {
           last_name: string | null
           created_at: string
           timezone: string
+          push_enabled: boolean
         }
         Insert: {
           id: string
@@ -102,6 +103,7 @@ export interface Database {
           last_name?: string | null
           created_at?: string
           timezone?: string
+          push_enabled?: boolean
         }
         Update: {
           id?: string
@@ -110,6 +112,61 @@ export interface Database {
           last_name?: string | null
           created_at?: string
           timezone?: string
+          push_enabled?: boolean
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      notification_log: {
+        Row: {
+          id: number
+          user_id: string
+          notification_type: string
+          period_key: string
+          sent_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          notification_type: string
+          period_key: string
+          sent_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          notification_type?: string
+          period_key?: string
+          sent_at?: string
         }
         Relationships: []
       }
