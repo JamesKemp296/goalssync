@@ -1,7 +1,5 @@
-import { Grid } from '@mui/material'
+import { Stack } from '@mui/material'
 import type { ReactNode } from 'react'
-
-const LIST_CARD_GAP = 1.5
 
 type ListCardWrapperProps = {
   children: ReactNode
@@ -12,13 +10,9 @@ type ListCardWrapperItemProps = {
 }
 
 export default function ListCardWrapper({ children }: ListCardWrapperProps) {
-  return (
-    <Grid container spacing={LIST_CARD_GAP}>
-      {children}
-    </Grid>
-  )
+  return <Stack spacing={1.25}>{children}</Stack>
 }
 
 export function ListCardWrapperItem({ children }: ListCardWrapperItemProps) {
-  return <Grid size={6}>{children}</Grid>
+  return children
 }

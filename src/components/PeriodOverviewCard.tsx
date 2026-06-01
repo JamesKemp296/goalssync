@@ -193,11 +193,11 @@ export default function PeriodOverviewCard({
                       sx={{
                         width: 28,
                         height: 28,
-                        borderRadius: '50%',
-                        bgcolor: alpha(color, 0.5),
+                        borderRadius: 1.5,
+                        bgcolor: alpha(color, 0.16),
+                        color,
                         display: 'grid',
                         placeItems: 'center',
-                        color: 'text.primary',
                         flexShrink: 0,
                       }}
                     >

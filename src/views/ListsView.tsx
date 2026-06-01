@@ -5,6 +5,7 @@ import {
   Chip,
   Container,
   Drawer,
+  Fab,
   InputAdornment,
   ListItemIcon,
   ListItemText,
@@ -320,79 +321,72 @@ export default function ListsView() {
             minHeight: 0,
             overflowY: 'auto',
             overscrollBehavior: 'contain',
-            pb: 12,
+            pb: 2,
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.25 }}>
             All Lists
           </Typography>
           {loading ? (
-            <Box>
-              <ListCardWrapper>
-                {Array.from({ length: 1 }).map((_, idx) => (
-                  <ListCardWrapperItem key={`lists-skeleton-${idx}`}>
-                    <ListCard
-                      loading
-                      listId={0}
-                      title=""
-                      listColor="transparent"
-                      progress={0}
-                      total={0}
-                      completed={0}
-                      showMenuButton
-                    />
-                  </ListCardWrapperItem>
-                ))}
-              </ListCardWrapper>
+            <ListCardWrapper>
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <ListCardWrapperItem key={`lists-skeleton-${idx}`}>
+                  <ListCard
+                    loading
+                    listId={0}
+                    title=""
+                    listColor="transparent"
+                    progress={0}
+                    total={0}
+                    completed={0}
+                    showMenuButton
+                  />
+                </ListCardWrapperItem>
+              ))}
+            </ListCardWrapper>
+          ) : visibleLists.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+              <Typography>
+                {lists.length === 0
+                  ? 'No lists yet. Tap + to create one.'
+                  : pinnedOnly
+                    ? 'No pinned list matches your search.'
+                    : 'No lists match your search.'}
+              </Typography>
             </Box>
           ) : (
-            <Box>
-              {visibleLists.length === 0 ? (
-                <Box
-                  sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}
-                >
-                  <Typography>
-                    {lists.length === 0
-                      ? 'No lists yet. Tap + to create one.'
-                      : pinnedOnly
-                        ? 'No pinned list matches your search.'
-                        : 'No lists match your search.'}
-                  </Typography>
-                </Box>
-              ) : (
-                <ListCardWrapper>
-                  {visibleLists.map((list) => {
-                    const listColor = normalizeListColor(list.color)
-                    const stats = statsByListId[list.id] ?? {
-                      total: 0,
-                      completed: 0,
-                    }
-                    const progress =
-                      stats.total === 0
-                        ? 0
-                        : Math.round((stats.completed / stats.total) * 100)
+            <ListCardWrapper>
+              {visibleLists.map((list) => {
+                const listColor = normalizeListColor(list.color)
+                const stats = statsByListId[list.id] ?? {
+                  total: 0,
+                  completed: 0,
+                }
+                const progress =
+                  stats.total === 0
+                    ? 0
+                    : Math.round((stats.completed / stats.total) * 100)
 
-                    return (
-                      <ListCardWrapperItem key={list.id}>
-                        <ListCard
-                          listId={list.id}
-                          title={list.title}
-                          listColor={listColor}
-                          progress={progress}
-                          total={stats.total}
-                          completed={stats.completed}
-                          iconKey={list.icon}
-                          isPinned={Boolean(list.pinned_at)}
-                          showMenuButton
-                          timeFrame={normalizeTimeFrame(list.time_frame)}
-                          onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
-                        />
-                      </ListCardWrapperItem>
-                    )
-                  })}
-                </ListCardWrapper>
-              )}
-            </Box>
+                return (
+                  <ListCardWrapperItem key={list.id}>
+                    <ListCard
+                      listId={list.id}
+                      title={list.title}
+                      listColor={listColor}
+                      progress={progress}
+                      total={stats.total}
+                      completed={stats.completed}
+                      iconKey={list.icon}
+                      isPinned={Boolean(list.pinned_at)}
+                      showMenuButton
+                      timeFrame={normalizeTimeFrame(list.time_frame)}
+                      nextResetAt={list.next_reset_at}
+                      onOpenMenu={(el) => setMenuFor({ id: list.id, el })}
+                    />
+                  </ListCardWrapperItem>
+                )
+              })}
+            </ListCardWrapper>
           )}
         </Box>
       </Container>
@@ -408,9 +402,7 @@ export default function ListsView() {
           </ListItemIcon>
           <ListItemText>Edit list</ListItemText>
         </MenuItem>
-        <MenuItem
-          onClick={() => menuForList && void togglePin(menuForList)}
-        >
+        <MenuItem onClick={() => menuForList && void togglePin(menuForList)}>
           <ListItemIcon>
             <TbPin size={18} />
           </ListItemIcon>
@@ -429,26 +421,19 @@ export default function ListsView() {
         </MenuItem>
       </Menu>
 
-      <Button
-        variant="contained"
+      <Fab
         color="primary"
-        size="large"
-        startIcon={<TbPlus size={18} />}
-        onClick={openCreateEditor}
         aria-label="New list"
+        onClick={openCreateEditor}
         sx={{
           position: 'fixed',
-          left: 20,
           right: 20,
           bottom: 'calc(64px + env(safe-area-inset-bottom) + 16px)',
           zIndex: (theme) => theme.zIndex.appBar + 1,
-          py: 1.25,
-          borderRadius: 999,
-          boxShadow: 6,
         }}
       >
-        New list
-      </Button>
+        <TbPlus size={24} />
+      </Fab>
 
       <Drawer
         anchor="bottom"

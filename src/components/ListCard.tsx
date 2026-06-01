@@ -1,18 +1,23 @@
+import { useEffect, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
   Box,
   Card,
   CardActionArea,
   IconButton,
+  LinearProgress,
   Skeleton,
-  Stack,
   Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { TbDotsVertical, TbPin, TbRefresh } from 'react-icons/tb'
 import { getListIconComponent, normalizeListIcon } from '../listIcons'
-import CompleteLeftChip from './CompleteLeftChip'
-import { TIME_FRAME_SHORT, type ListTimeFrame } from '../timeFrames'
+import {
+  TIME_FRAME_SHORT,
+  computeNextResetAt,
+  formatResetCountdown,
+  type ListTimeFrame,
+} from '../timeFrames'
 
 type ListCardProps = {
   listId: number
@@ -27,9 +32,8 @@ type ListCardProps = {
   onOpenMenu?: (el: HTMLElement) => void
   loading?: boolean
   timeFrame?: ListTimeFrame
+  nextResetAt?: string | null
 }
-
-const LIST_CARD_CONTENT_HEIGHT = 174
 
 export default function ListCard({
   listId,
@@ -44,197 +48,233 @@ export default function ListCard({
   onOpenMenu,
   loading = false,
   timeFrame,
+  nextResetAt = null,
 }: ListCardProps) {
-  const ListIcon = getListIconComponent(normalizeListIcon(iconKey))
-  const left = Math.max(0, total - completed)
+  const [now, setNow] = useState(() => new Date())
   const showCadence = !!timeFrame && timeFrame !== 'none' && !loading
+
+  useEffect(() => {
+    if (!nextResetAt && !showCadence) return
+    const id = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(id)
+  }, [nextResetAt, showCadence])
+
+  const ListIcon = getListIconComponent(normalizeListIcon(iconKey))
+  const effectiveResetAt =
+    nextResetAt ??
+    (showCadence && timeFrame
+      ? computeNextResetAt(timeFrame, now)?.toISOString() ?? null
+      : null)
+  const resetLabel = !loading ? formatResetCountdown(effectiveResetAt, now) : ''
+  const metaLine = resetLabel
+    ? `${completed} / ${total} • ${resetLabel}`
+    : `${completed} / ${total}`
+
   const cardBody = (
-    <Stack spacing={1.2}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-        }}
-      >
+    <Box
+      sx={{
+        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+        height: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
         <Box
           sx={{
-            width: 42,
-            height: 42,
-            borderRadius: '50%',
-            border: '2px solid',
-            borderColor: listColor,
+            flexShrink: 0,
+            aspectRatio: '1',
+            width: (theme) => theme.spacing(4),
+            borderRadius: 1.5,
+            bgcolor: loading ? 'action.hover' : alpha(listColor, 0.16),
+            color: listColor,
             display: 'grid',
             placeItems: 'center',
-            color: listColor,
-            fontSize: 12,
-            fontWeight: 700,
           }}
         >
           {loading ? (
-            <Skeleton variant="circular" width={38} height={38} />
+            <Skeleton variant="rounded" width="50%" height="50%" />
           ) : (
-            `${progress}%`
+            <ListIcon size={20} />
           )}
         </Box>
-        {showMenuButton && onOpenMenu ? (
-          loading ? (
-            <Skeleton variant="circular" width={24} height={24} sx={{ mt: -0.25, mr: -0.25 }} />
-          ) : (
-            <IconButton
-              aria-label="List options"
-              size="small"
-              sx={{ mt: -0.25, mr: -0.25 }}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onOpenMenu(e.currentTarget)
-              }}
-            >
-              <TbDotsVertical size={18} />
-            </IconButton>
-          )
-        ) : loading ? (
-          <Skeleton variant="circular" width={10} height={10} sx={{ mt: 0.5 }} />
-        ) : (
+
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
           <Box
             sx={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              bgcolor: listColor,
-              mt: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              minWidth: 0,
+            }}
+          >
+            {loading ? (
+              <Skeleton variant="rounded" width="55%" height={22} sx={{ flex: 1 }} />
+            ) : (
+              <Typography
+                noWrap
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontWeight: 600,
+                  lineHeight: 1.35,
+                }}
+              >
+                {title}
+              </Typography>
+            )}
+            {loading && showMenuButton ? (
+              <Skeleton
+                variant="circular"
+                width={34}
+                height={34}
+                sx={{ flexShrink: 0 }}
+              />
+            ) : !loading && (isPinned || (showMenuButton && onOpenMenu)) ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {isPinned ? (
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: listColor,
+                      alignSelf: 'stretch',
+                      px: 0.5,
+                    }}
+                    aria-hidden
+                  >
+                    <TbPin size={14} />
+                  </Box>
+                ) : null}
+                {showMenuButton && onOpenMenu ? (
+                  <IconButton
+                    aria-label="List options"
+                    size="small"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onOpenMenu(e.currentTarget)
+                    }}
+                  >
+                    <TbDotsVertical size={18} />
+                  </IconButton>
+                ) : null}
+              </Box>
+            ) : null}
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              minWidth: 0,
+            }}
+          >
+            {loading ? (
+              <Skeleton variant="rounded" width="45%" height={18} />
+            ) : (
+              <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+                {metaLine}
+              </Typography>
+            )}
+            {loading ? (
+              <Skeleton variant="rounded" width={56} height={20} sx={{ borderRadius: 999, flexShrink: 0 }} />
+            ) : (
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.4,
+                  flexShrink: 0,
+                  px: 0.75,
+                  py: 0.15,
+                  borderRadius: 999,
+                  bgcolor: alpha(listColor, 0.14),
+                  color: listColor,
+                  visibility: showCadence ? 'visible' : 'hidden',
+                }}
+                aria-hidden={!showCadence}
+              >
+                <TbRefresh size={11} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 700, fontSize: '0.65rem', lineHeight: 1.2 }}
+                >
+                  {showCadence ? TIME_FRAME_SHORT[timeFrame!] : TIME_FRAME_SHORT.daily}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      </Box>
+
+      {loading ? (
+        <Skeleton variant="rounded" height={6} sx={{ borderRadius: 999 }} />
+      ) : (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            aria-hidden
+            sx={{
+              flex: 1,
+              height: 6,
+              borderRadius: 999,
+              bgcolor: alpha(listColor, 0.16),
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 999,
+                bgcolor: listColor,
+              },
             }}
           />
-        )}
-      </Box>
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          minWidth: 0,
-        }}
-      >
-        {loading ? <Skeleton variant="rounded" width={18} height={18} /> : <ListIcon size={18} />}
-        {loading ? (
-          <Skeleton variant="rounded" width="70%" height={24} />
-        ) : (
           <Typography
-            variant="h6"
-            noWrap
-            sx={{ fontWeight: 800, lineHeight: 1.1 }}
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              fontWeight: 700,
+              textAlign: 'right',
+              fontVariantNumeric: 'tabular-nums',
+            }}
           >
-            {title}
+            {progress}%
           </Typography>
-        )}
-      </Box>
-
-      {loading ? (
-        <Skeleton variant="rounded" width="40%" height={20} />
-      ) : (
-        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            {`${total} ${total === 1 ? 'task' : 'tasks'}`}
-          </Typography>
-          {showCadence ? (
-            <Box
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.4,
-                px: 0.75,
-                py: 0.15,
-                borderRadius: 999,
-                bgcolor: alpha(listColor, 0.22),
-                color: listColor,
-              }}
-            >
-              <TbRefresh size={11} />
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, fontSize: '0.6rem' }}
-              >
-                {TIME_FRAME_SHORT[timeFrame!]}
-              </Typography>
-            </Box>
-          ) : null}
-        </Stack>
+        </Box>
       )}
-
-      {loading ? (
-        <Stack direction="row" spacing={0.8}>
-          <Skeleton variant="rounded" width={96} height={22} sx={{ borderRadius: 999 }} />
-          <Skeleton variant="rounded" width={70} height={22} sx={{ borderRadius: 999 }} />
-        </Stack>
-      ) : (
-        <Stack direction="row" spacing={0.8}>
-          <CompleteLeftChip
-            kind="complete"
-            count={completed}
-            accentColor={listColor}
-          />
-          <CompleteLeftChip
-            kind="left"
-            count={left}
-            accentColor={listColor}
-          />
-        </Stack>
-      )}
-    </Stack>
+    </Box>
   )
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      {isPinned ? (
-        <Box
-          sx={(theme) => ({
-            position: 'absolute',
-            top: -12,
-            right: 10,
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: theme.palette.background.paper,
-            display: 'grid',
-            placeItems: 'center',
-            color: listColor,
-            zIndex: 2,
-            boxShadow: 1,
-          })}
+    <Card
+      sx={{
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        boxShadow: 1,
+        height: '100%',
+      }}
+    >
+      {loading ? (
+        cardBody
+      ) : (
+        <CardActionArea
+          component={RouterLink}
+          to={`/lists/${listId}`}
+          sx={{ height: '100%' }}
         >
-          <TbPin size={14} />
-        </Box>
-      ) : null}
-      <Card sx={{ borderRadius: 3, height: '100%' }}>
-        {loading ? (
-          <Box
-            sx={{
-              p: 1.5,
-              height: '100%',
-              minHeight: LIST_CARD_CONTENT_HEIGHT,
-              boxSizing: 'border-box',
-            }}
-          >
-            {cardBody}
-          </Box>
-        ) : (
-          <CardActionArea
-            component={RouterLink}
-            to={`/lists/${listId}`}
-            sx={{
-              p: 1.5,
-              height: '100%',
-              minHeight: LIST_CARD_CONTENT_HEIGHT,
-              boxSizing: 'border-box',
-            }}
-          >
-            {cardBody}
-          </CardActionArea>
-        )}
-      </Card>
-    </Box>
+          {cardBody}
+        </CardActionArea>
+      )}
+    </Card>
   )
 }
