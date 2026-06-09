@@ -158,9 +158,12 @@ create policy "todos in own lists" on todos
 
 Adjust the migration if your old policies or column names differ.
 
-## Push notifications (weekly recap)
+## Push notifications
 
-Monday **7:00am in each user’s timezone**, users who opt in receive a push summarizing last week’s weekly lists.
+Two optional notification types share one browser push subscription and the same VAPID keys:
+
+- **Weekly recap** — Monday **7:00am** in each user’s timezone, summarizing last week’s weekly lists.
+- **Daily reminder** — Every day **10:00pm** in each user’s timezone, when the user has daily lists with incomplete tasks.
 
 ### One-time setup
 
@@ -175,10 +178,11 @@ Monday **7:00am in each user’s timezone**, users who opt in receive a push sum
 
 2. **Client env** (`.env` and Vercel): add `VITE_VAPID_PUBLIC_KEY` from the pair above (see `.env.example`).
 
-3. **Deploy the edge function** and set Supabase secrets:
+3. **Deploy the edge functions** and set Supabase secrets:
 
    ```bash
    npm run deploy:function:weekly-recap-push
+   npm run deploy:function:daily-reminder-push
    npx supabase secrets set \
      VAPID_PUBLIC_KEY=... \
      VAPID_PRIVATE_KEY=... \
@@ -194,24 +198,26 @@ Monday **7:00am in each user’s timezone**, users who opt in receive a push sum
 5. **Vault secrets for cron** (Supabase dashboard → Project Settings → Vault, or SQL):
 
    - `weekly_recap_push_url` = `https://<project-ref>.supabase.co/functions/v1/weekly-recap-push`
+   - `daily_reminder_push_url` = `https://<project-ref>.supabase.co/functions/v1/daily-reminder-push`
    - `anon_key` = your **anon / publishable** key (Settings → API)
    - `cron_secret` = same value as `CRON_SECRET` above
 
-   The cron job runs every 15 minutes. Without these vault entries, `invoke_weekly_recap_push()` logs a notice and skips.
+   Both cron jobs run every 15 minutes. Without these vault entries, the invoke functions log a notice and skip.
 
-### Testing the edge function
+### Testing the edge functions
 
-With JWT verify **OFF** (as in your dashboard), Supabase expects the **anon key** at the gateway. The function itself checks `x-cron-secret`.
+With JWT verify **OFF** (as in your dashboard), Supabase expects the **anon key** at the gateway. Each function checks `x-cron-secret`.
 
 1. Set `CRON_SECRET` on Supabase (step 3) and add the same value to `.env`
-2. Redeploy: `npm run deploy:function:weekly-recap-push`
+2. Redeploy: `npm run deploy:function:weekly-recap-push` and `npm run deploy:function:daily-reminder-push`
 3. Run:
 
 ```bash
 npm run invoke:function:weekly-recap-push
+npm run invoke:function:daily-reminder-push
 ```
 
-Success looks like `{"sent":0,"skipped":N,"errors":0}`. Auth worked even if `sent` is 0 (normal outside Monday 7:00–7:14am in your timezone).
+Success looks like `{"sent":0,"skipped":N,"errors":0}`. Auth worked even if `sent` is 0 (normal outside the send window in your timezone: Monday 7:00–7:14am for weekly, 10:00–10:14pm for daily).
 
 Or with curl:
 
@@ -222,11 +228,18 @@ curl -X POST \
   -H "apikey: YOUR_ANON_KEY" \
   -H "x-cron-secret: YOUR_CRON_SECRET" \
   -H "Content-Type: application/json"
+
+curl -X POST \
+  "https://YOUR_PROJECT_REF.supabase.co/functions/v1/daily-reminder-push" \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -H "apikey: YOUR_ANON_KEY" \
+  -H "x-cron-secret: YOUR_CRON_SECRET" \
+  -H "Content-Type: application/json"
 ```
 
 ### User flow
 
-Users enable **Weekly recap (Monday 7am)** in Settings. iOS requires installing the PWA to the home screen before push works.
+Users enable **Weekly recap (Monday 7am)** and/or **Daily reminder (10pm)** independently in Settings. Both share one device push subscription. iOS requires installing the PWA to the home screen before push works.
 
 ## Routes
 

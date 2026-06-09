@@ -2,6 +2,11 @@ import { supabase } from './supabase'
 
 const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim() ?? ''
 
+export type NotificationPrefs = {
+  weeklyRecap: boolean
+  dailyReminder: boolean
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -14,11 +19,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function isPushSupported(): boolean {
+  if (typeof window === 'undefined') return false
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) return false
+  // PushManager lives on ServiceWorkerRegistration in some Android PWAs.
   return (
-    typeof window !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    'PushManager' in window &&
-    'Notification' in window
+    'PushManager' in window ||
+    'pushManager' in ServiceWorkerRegistration.prototype
   )
 }
 
@@ -33,20 +39,50 @@ export function getPushPermission(): PushPermissionState {
   return Notification.permission
 }
 
+const SERVICE_WORKER_TIMEOUT_MS = 15_000
+
 async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
-  const registration = await navigator.serviceWorker.ready
-  return registration
+  const existing = await navigator.serviceWorker.getRegistration()
+  if (existing?.active) return existing
+
+  const ready = navigator.serviceWorker.ready
+  const timeout = new Promise<never>((_, reject) => {
+    window.setTimeout(() => {
+      reject(
+        new Error(
+          'Service worker is not ready. Close the app completely and open it again, then retry.',
+        ),
+      )
+    }, SERVICE_WORKER_TIMEOUT_MS)
+  })
+
+  return Promise.race([ready, timeout])
 }
 
-export async function subscribeToPush(userId: string): Promise<void> {
+/** Call synchronously from a click/tap handler before other async work (required on Android). */
+export async function requestPushPermission(): Promise<NotificationPermission> {
+  if (!isPushSupported()) {
+    throw new Error('Push notifications are not supported')
+  }
+  if (Notification.permission === 'granted') return 'granted'
+  if (Notification.permission === 'denied') {
+    throw new Error('Notifications are blocked in browser settings')
+  }
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') {
+    throw new Error('Notification permission was not granted')
+  }
+  return permission
+}
+
+export async function ensurePushSubscription(userId: string): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured')
   if (!isPushSupported()) throw new Error('Push notifications are not supported')
   if (!isVapidConfigured()) {
     throw new Error('Push notifications are not configured on this server')
   }
 
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') {
+  if (Notification.permission !== 'granted') {
     throw new Error('Notification permission was not granted')
   }
 
@@ -75,15 +111,9 @@ export async function subscribeToPush(userId: string): Promise<void> {
     { onConflict: 'user_id,endpoint' },
   )
   if (subError) throw new Error(subError.message)
-
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({ push_enabled: true })
-    .eq('id', userId)
-  if (profileError) throw new Error(profileError.message)
 }
 
-export async function unsubscribeFromPush(userId: string): Promise<void> {
+async function releasePushSubscription(userId: string): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured')
 
   if (isPushSupported()) {
@@ -102,12 +132,55 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
   } else {
     await supabase.from('push_subscriptions').delete().eq('user_id', userId)
   }
+}
+
+async function hasAnyNotificationEnabled(userId: string): Promise<boolean> {
+  const prefs = await fetchNotificationPrefs(userId)
+  return prefs.weeklyRecap || prefs.dailyReminder
+}
+
+export async function setWeeklyRecapEnabled(
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  if (!supabase) throw new Error('Supabase is not configured')
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .update({ push_enabled: false })
+    .update({ push_enabled: enabled })
     .eq('id', userId)
   if (profileError) throw new Error(profileError.message)
+
+  if (enabled) {
+    await ensurePushSubscription(userId)
+    return
+  }
+
+  if (!(await hasAnyNotificationEnabled(userId))) {
+    await releasePushSubscription(userId)
+  }
+}
+
+export async function setDailyReminderEnabled(
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ daily_reminder_enabled: enabled })
+    .eq('id', userId)
+  if (profileError) throw new Error(profileError.message)
+
+  if (enabled) {
+    await ensurePushSubscription(userId)
+    return
+  }
+
+  if (!(await hasAnyNotificationEnabled(userId))) {
+    await releasePushSubscription(userId)
+  }
 }
 
 export async function sendTestPush(): Promise<{
@@ -155,12 +228,21 @@ export async function sendTestPush(): Promise<{
   }
 }
 
-export async function fetchPushEnabled(userId: string): Promise<boolean> {
-  if (!supabase) return false
+export async function fetchNotificationPrefs(
+  userId: string,
+): Promise<NotificationPrefs> {
+  if (!supabase) return { weeklyRecap: false, dailyReminder: false }
   const { data } = await supabase
     .from('profiles')
-    .select('push_enabled')
+    .select('push_enabled, daily_reminder_enabled')
     .eq('id', userId)
     .maybeSingle()
-  return Boolean((data as { push_enabled?: boolean } | null)?.push_enabled)
+  const row = data as {
+    push_enabled?: boolean
+    daily_reminder_enabled?: boolean
+  } | null
+  return {
+    weeklyRecap: Boolean(row?.push_enabled),
+    dailyReminder: Boolean(row?.daily_reminder_enabled),
+  }
 }

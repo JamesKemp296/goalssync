@@ -5,6 +5,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
 import {
+  buildDailyReminderMessage,
+  type DailyReminderRow,
+} from '../_shared/dailyReminderMessage.ts'
+import {
   buildWeeklyRecapMessage,
   pushIconUrl,
   type WeeklyRecapRow,
@@ -32,6 +36,11 @@ type HistoryRow = {
   completed_all: boolean
   period_end: string
   lists: { title: string } | { title: string }[] | null
+}
+
+type DailyListRow = {
+  title: string
+  todos: { is_complete: boolean }[] | null
 }
 
 Deno.serve(async (req) => {
@@ -90,8 +99,37 @@ Deno.serve(async (req) => {
   if (subsErr) return json(500, { error: subsErr.message })
   if (!subs?.length) {
     return json(400, {
-      error: 'No push subscription. Enable weekly recap notifications first.',
+      error: 'No push subscription. Enable notifications in Settings first.',
     })
+  }
+
+  let message = {
+    title: 'Test push',
+    body: 'Goals Sync notifications are working.',
+  }
+
+  const { data: dailyLists } = await admin
+    .from('lists')
+    .select('title, todos(is_complete)')
+    .eq('user_id', userId)
+    .eq('time_frame', 'daily')
+
+  const reminderRows: DailyReminderRow[] = ((dailyLists ?? []) as DailyListRow[])
+    .map((list) => {
+      const todos = list.todos ?? []
+      const total_count = todos.length
+      const completed_count = todos.filter((t) => t.is_complete).length
+      return {
+        listTitle: list.title?.trim() || 'Daily list',
+        completed_count,
+        total_count,
+      }
+    })
+    .filter((row) => row.total_count > 0 && row.completed_count < row.total_count)
+
+  const dailyReminder = buildDailyReminderMessage(reminderRows)
+  if (dailyReminder) {
+    message = dailyReminder
   }
 
   const { data: latestPeriod } = await admin
@@ -103,12 +141,7 @@ Deno.serve(async (req) => {
     .limit(1)
     .maybeSingle()
 
-  let message = {
-    title: 'Test push',
-    body: 'Goals Sync notifications are working.',
-  }
-
-  if (latestPeriod?.period_end) {
+  if (!dailyReminder && latestPeriod?.period_end) {
     const { data: historyRows } = await admin
       .from('list_period_history')
       .select(

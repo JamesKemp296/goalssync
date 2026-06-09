@@ -95,6 +95,7 @@ export interface Database {
           created_at: string
           timezone: string
           push_enabled: boolean
+          daily_reminder_enabled: boolean
         }
         Insert: {
           id: string
@@ -104,6 +105,7 @@ export interface Database {
           created_at?: string
           timezone?: string
           push_enabled?: boolean
+          daily_reminder_enabled?: boolean
         }
         Update: {
           id?: string
@@ -113,6 +115,7 @@ export interface Database {
           created_at?: string
           timezone?: string
           push_enabled?: boolean
+          daily_reminder_enabled?: boolean
         }
         Relationships: []
       }

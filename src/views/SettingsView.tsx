@@ -30,13 +30,14 @@ import { useAppToast } from '../components/AppSnackbar'
 import { isLindseyUser } from '../lindseyUx'
 import { isDeveloperUser } from '../developerAccess'
 import {
-  fetchPushEnabled,
+  fetchNotificationPrefs,
   getPushPermission,
   isPushSupported,
   isVapidConfigured,
+  requestPushPermission,
   sendTestPush,
-  subscribeToPush,
-  unsubscribeFromPush,
+  setDailyReminderEnabled as updateDailyReminderEnabled,
+  setWeeklyRecapEnabled as updateWeeklyRecapEnabled,
 } from '../pushNotifications'
 import { supabase } from '../supabase'
 import { useThemeMode } from '../components/ThemeModeProvider'
@@ -69,8 +70,10 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const [savingProfile, setSavingProfile] = useState(false)
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(true)
   const [pushToggling, setPushToggling] = useState(false)
+  const [dailyReminderToggling, setDailyReminderToggling] = useState(false)
   const [testPushLoading, setTestPushLoading] = useState(false)
   const displayName = [firstName.trim(), lastName.trim()]
     .filter(Boolean)
@@ -95,9 +98,10 @@ export default function SettingsView({ session }: SettingsViewProps) {
     let cancelled = false
     void (async () => {
       setPushLoading(true)
-      const enabled = await fetchPushEnabled(session.user.id)
+      const prefs = await fetchNotificationPrefs(session.user.id)
       if (!cancelled) {
-        setPushEnabled(enabled)
+        setPushEnabled(prefs.weeklyRecap)
+        setDailyReminderEnabled(prefs.dailyReminder)
         setPushLoading(false)
       }
     })()
@@ -110,40 +114,88 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const pushPermission = getPushPermission()
   const pushConfigured = isVapidConfigured()
   const pushBlocked = pushPermission === 'denied'
-  const pushHelperText = !pushSupported
+  const pushUnavailable =
+    pushLoading ||
+    !pushSupported ||
+    !pushConfigured ||
+    pushBlocked
+  const weeklyHelperText = !pushSupported
     ? 'Not supported in this browser.'
     : !pushConfigured
       ? 'Push is not configured for this environment.'
       : pushBlocked
         ? 'Notifications are blocked in browser settings.'
         : 'Monday 7am recap of your weekly lists.'
+  const dailyHelperText = !pushSupported
+    ? 'Not supported in this browser.'
+    : !pushConfigured
+      ? 'Push is not configured for this environment.'
+      : pushBlocked
+        ? 'Notifications are blocked in browser settings.'
+        : 'Nudge to finish open tasks on your daily lists.'
 
-  const handlePushToggle = async (checked: boolean) => {
-    setPushToggling(true)
-    try {
-      if (checked) {
-        await subscribeToPush(session.user.id)
-        setPushEnabled(true)
-        toast('Notifications enabled', {
-          subTitle: 'Weekly recap every Monday at 7am.',
-          variant: 'success',
+  const handlePushToggle = (checked: boolean) => {
+    void (async () => {
+      const previous = pushEnabled
+      setPushEnabled(checked)
+      setPushToggling(true)
+      try {
+        if (checked) {
+          await requestPushPermission()
+          await updateWeeklyRecapEnabled(session.user.id, true)
+          toast('Weekly recap enabled', {
+            subTitle: 'Every Monday at 7am.',
+            variant: 'success',
+          })
+        } else {
+          await updateWeeklyRecapEnabled(session.user.id, false)
+          toast('Weekly recap disabled', {
+            subTitle: 'Monday morning pushes are turned off.',
+            variant: 'success',
+          })
+        }
+      } catch (err) {
+        setPushEnabled(previous)
+        toast('Could not update notifications', {
+          subTitle: err instanceof Error ? err.message : 'Something went wrong.',
+          variant: 'error',
         })
-      } else {
-        await unsubscribeFromPush(session.user.id)
-        setPushEnabled(false)
-        toast('Notifications disabled', {
-          subTitle: 'Weekly recap pushes are turned off.',
-          variant: 'success',
-        })
+      } finally {
+        setPushToggling(false)
       }
-    } catch (err) {
-      toast('Could not update notifications', {
-        subTitle: err instanceof Error ? err.message : 'Something went wrong.',
-        variant: 'error',
-      })
-    } finally {
-      setPushToggling(false)
-    }
+    })()
+  }
+
+  const handleDailyReminderToggle = (checked: boolean) => {
+    void (async () => {
+      const previous = dailyReminderEnabled
+      setDailyReminderEnabled(checked)
+      setDailyReminderToggling(true)
+      try {
+        if (checked) {
+          await requestPushPermission()
+          await updateDailyReminderEnabled(session.user.id, true)
+          toast('Daily reminder enabled', {
+            subTitle: 'Every night at 10pm when tasks are left.',
+            variant: 'success',
+          })
+        } else {
+          await updateDailyReminderEnabled(session.user.id, false)
+          toast('Daily reminder disabled', {
+            subTitle: 'Evening nudges are turned off.',
+            variant: 'success',
+          })
+        }
+      } catch (err) {
+        setDailyReminderEnabled(previous)
+        toast('Could not update notifications', {
+          subTitle: err instanceof Error ? err.message : 'Something went wrong.',
+          variant: 'error',
+        })
+      } finally {
+        setDailyReminderToggling(false)
+      }
+    })()
   }
 
   const handleTestPush = async () => {
@@ -291,30 +343,56 @@ export default function SettingsView({ session }: SettingsViewProps) {
             <Paper>
               <List>
                 <ListItem
-                  secondaryAction={
-                    <Switch
-                      edge="end"
-                      checked={pushEnabled}
-                      disabled={
-                        pushLoading ||
-                        pushToggling ||
-                        !pushSupported ||
-                        !pushConfigured ||
-                        pushBlocked
-                      }
-                      onChange={(_, checked) => void handlePushToggle(checked)}
-                      slotProps={{
-                        input: { 'aria-label': 'Toggle weekly recap notifications' },
-                      }}
-                    />
-                  }
+                  sx={{ pr: 2, gap: 1 }}
+                  onClick={() => {
+                    if (pushUnavailable || pushToggling) return
+                    handlePushToggle(!pushEnabled)
+                  }}
                 >
-                  <ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
                     <TbBell size={18} />
                   </ListItemIcon>
                   <ListItemText
                     primary="Weekly recap (Monday 7am)"
-                    secondary={pushHelperText}
+                    secondary={weeklyHelperText}
+                  />
+                  <Switch
+                    edge="end"
+                    checked={pushEnabled}
+                    disabled={pushUnavailable || pushToggling}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(_, checked) => handlePushToggle(checked)}
+                    slotProps={{
+                      input: { 'aria-label': 'Toggle weekly recap notifications' },
+                    }}
+                    sx={{ flexShrink: 0 }}
+                  />
+                </ListItem>
+                <Divider component="li" sx={{ mx: 2 }} />
+                <ListItem
+                  sx={{ pr: 2, gap: 1 }}
+                  onClick={() => {
+                    if (pushUnavailable || dailyReminderToggling) return
+                    handleDailyReminderToggle(!dailyReminderEnabled)
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <TbBell size={18} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Daily reminder (10pm)"
+                    secondary={dailyHelperText}
+                  />
+                  <Switch
+                    edge="end"
+                    checked={dailyReminderEnabled}
+                    disabled={pushUnavailable || dailyReminderToggling}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(_, checked) => handleDailyReminderToggle(checked)}
+                    slotProps={{
+                      input: { 'aria-label': 'Toggle daily reminder notifications' },
+                    }}
+                    sx={{ flexShrink: 0 }}
                   />
                 </ListItem>
               </List>
@@ -445,20 +523,22 @@ export default function SettingsView({ session }: SettingsViewProps) {
               <Paper sx={{ p: 2 }}>
                 <Stack spacing={1.5}>
                   <Typography variant="body2" color="text.secondary">
-                    Send a test weekly-recap push to this device now (uses your
-                    latest weekly history when available).
+                    Send a test push to this device now (prefers live daily
+                    reminder copy, then latest weekly recap).
                   </Typography>
                   <LoadingButton
                     variant="outlined"
                     loading={testPushLoading}
-                    disabled={!pushEnabled || testPushLoading}
+                    disabled={
+                      (!pushEnabled && !dailyReminderEnabled) || testPushLoading
+                    }
                     onClick={() => void handleTestPush()}
                   >
                     Send test push
                   </LoadingButton>
-                  {!pushEnabled ? (
+                  {!pushEnabled && !dailyReminderEnabled ? (
                     <Typography variant="caption" color="text.secondary">
-                      Enable weekly recap notifications above first.
+                      Enable at least one notification type above first.
                     </Typography>
                   ) : null}
                 </Stack>

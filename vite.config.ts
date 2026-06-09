@@ -10,7 +10,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: false,
       includeAssets: [
         'icons/ace.png',
         'icons/nutmeg.png',
