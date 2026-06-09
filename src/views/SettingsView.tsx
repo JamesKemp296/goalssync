@@ -74,7 +74,8 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const [pushLoading, setPushLoading] = useState(true)
   const [pushToggling, setPushToggling] = useState(false)
   const [dailyReminderToggling, setDailyReminderToggling] = useState(false)
-  const [testPushLoading, setTestPushLoading] = useState(false)
+  const [testWeeklyPushLoading, setTestWeeklyPushLoading] = useState(false)
+  const [testDailyPushLoading, setTestDailyPushLoading] = useState(false)
   const displayName = [firstName.trim(), lastName.trim()]
     .filter(Boolean)
     .join(' ')
@@ -198,10 +199,12 @@ export default function SettingsView({ session }: SettingsViewProps) {
     })()
   }
 
-  const handleTestPush = async () => {
-    setTestPushLoading(true)
+  const handleTestPush = async (type: 'weekly_recap' | 'daily_reminder') => {
+    const setLoading =
+      type === 'weekly_recap' ? setTestWeeklyPushLoading : setTestDailyPushLoading
+    setLoading(true)
     try {
-      const result = await sendTestPush()
+      const result = await sendTestPush(type)
       toast(result.title, {
         subTitle: result.body,
         variant: 'success',
@@ -212,7 +215,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
         variant: 'error',
       })
     } finally {
-      setTestPushLoading(false)
+      setLoading(false)
     }
   }
 
@@ -523,22 +526,33 @@ export default function SettingsView({ session }: SettingsViewProps) {
               <Paper sx={{ p: 2 }}>
                 <Stack spacing={1.5}>
                   <Typography variant="body2" color="text.secondary">
-                    Send a test push to this device now (prefers live daily
-                    reminder copy, then latest weekly recap).
+                    Send test pushes to this device using each notification
+                    type&apos;s copy.
                   </Typography>
                   <LoadingButton
                     variant="outlined"
-                    loading={testPushLoading}
-                    disabled={
-                      (!pushEnabled && !dailyReminderEnabled) || testPushLoading
-                    }
-                    onClick={() => void handleTestPush()}
+                    loading={testWeeklyPushLoading}
+                    disabled={!pushEnabled || testWeeklyPushLoading}
+                    onClick={() => void handleTestPush('weekly_recap')}
                   >
-                    Send test push
+                    Test weekly recap push
                   </LoadingButton>
-                  {!pushEnabled && !dailyReminderEnabled ? (
+                  {!pushEnabled ? (
                     <Typography variant="caption" color="text.secondary">
-                      Enable at least one notification type above first.
+                      Enable weekly recap notifications above first.
+                    </Typography>
+                  ) : null}
+                  <LoadingButton
+                    variant="outlined"
+                    loading={testDailyPushLoading}
+                    disabled={!dailyReminderEnabled || testDailyPushLoading}
+                    onClick={() => void handleTestPush('daily_reminder')}
+                  >
+                    Test daily reminder push
+                  </LoadingButton>
+                  {!dailyReminderEnabled ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Enable daily reminder notifications above first.
                     </Typography>
                   ) : null}
                 </Stack>

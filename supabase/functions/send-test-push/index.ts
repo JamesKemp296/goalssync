@@ -23,6 +23,8 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+type TestPushType = 'weekly_recap' | 'daily_reminder'
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -41,6 +43,95 @@ type HistoryRow = {
 type DailyListRow = {
   title: string
   todos: { is_complete: boolean }[] | null
+}
+
+function parseTestPushType(body: unknown): TestPushType | null {
+  if (!body || typeof body !== 'object') return null
+  const type = (body as { type?: unknown }).type
+  if (type === 'weekly_recap' || type === 'daily_reminder') return type
+  return null
+}
+
+async function buildWeeklyTestMessage(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ title: string; body: string }> {
+  const { data: latestPeriod } = await admin
+    .from('list_period_history')
+    .select('period_end')
+    .eq('user_id', userId)
+    .eq('time_frame', 'weekly')
+    .order('period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!latestPeriod?.period_end) {
+    return {
+      title: 'Weekly recap',
+      body: 'Test weekly recap push — no weekly history yet.',
+    }
+  }
+
+  const { data: historyRows } = await admin
+    .from('list_period_history')
+    .select(
+      'completed_count, total_count, completed_all, period_end, lists(title)',
+    )
+    .eq('user_id', userId)
+    .eq('time_frame', 'weekly')
+    .eq('period_end', latestPeriod.period_end)
+
+  const recapRows: WeeklyRecapRow[] = ((historyRows ?? []) as HistoryRow[]).map(
+    (row) => {
+      const list = Array.isArray(row.lists) ? row.lists[0] : row.lists
+      return {
+        listTitle: list?.title ?? 'Weekly list',
+        completed_count: row.completed_count,
+        total_count: row.total_count,
+        completed_all: row.completed_all,
+      }
+    },
+  )
+
+  const recap = buildWeeklyRecapMessage(recapRows)
+  return (
+    recap ?? {
+      title: 'Weekly recap',
+      body: 'Test weekly recap push — no tasks in last week.',
+    }
+  )
+}
+
+async function buildDailyTestMessage(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ title: string; body: string }> {
+  const { data: dailyLists } = await admin
+    .from('lists')
+    .select('title, todos(is_complete)')
+    .eq('user_id', userId)
+    .eq('time_frame', 'daily')
+
+  const reminderRows: DailyReminderRow[] = ((dailyLists ?? []) as DailyListRow[])
+    .map((list) => {
+      const todos = list.todos ?? []
+      const total_count = todos.length
+      const completed_count = todos.filter((t) => t.is_complete).length
+      return {
+        listTitle: list.title?.trim() || 'Daily list',
+        completed_count,
+        total_count,
+      }
+    })
+    .filter((row) => row.total_count > 0 && row.completed_count < row.total_count)
+
+  const reminder = buildDailyReminderMessage(reminderRows)
+  return (
+    reminder ?? {
+      title: 'Daily reminder',
+      body: 'Test daily reminder push — no incomplete daily lists right now.',
+    }
+  )
 }
 
 Deno.serve(async (req) => {
@@ -69,6 +160,20 @@ Deno.serve(async (req) => {
   }
   if (!vapidPublic || !vapidPrivate || !vapidSubject) {
     return json(500, { error: 'Missing VAPID configuration' })
+  }
+
+  let body: unknown = null
+  try {
+    body = await req.json()
+  } catch {
+    body = null
+  }
+
+  const testType = parseTestPushType(body)
+  if (!testType) {
+    return json(400, {
+      error: 'Missing or invalid type. Use weekly_recap or daily_reminder.',
+    })
   }
 
   const userClient = createClient(url, anonKey, {
@@ -103,69 +208,10 @@ Deno.serve(async (req) => {
     })
   }
 
-  let message = {
-    title: 'Test push',
-    body: 'Goals Sync notifications are working.',
-  }
-
-  const { data: dailyLists } = await admin
-    .from('lists')
-    .select('title, todos(is_complete)')
-    .eq('user_id', userId)
-    .eq('time_frame', 'daily')
-
-  const reminderRows: DailyReminderRow[] = ((dailyLists ?? []) as DailyListRow[])
-    .map((list) => {
-      const todos = list.todos ?? []
-      const total_count = todos.length
-      const completed_count = todos.filter((t) => t.is_complete).length
-      return {
-        listTitle: list.title?.trim() || 'Daily list',
-        completed_count,
-        total_count,
-      }
-    })
-    .filter((row) => row.total_count > 0 && row.completed_count < row.total_count)
-
-  const dailyReminder = buildDailyReminderMessage(reminderRows)
-  if (dailyReminder) {
-    message = dailyReminder
-  }
-
-  const { data: latestPeriod } = await admin
-    .from('list_period_history')
-    .select('period_end')
-    .eq('user_id', userId)
-    .eq('time_frame', 'weekly')
-    .order('period_end', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (!dailyReminder && latestPeriod?.period_end) {
-    const { data: historyRows } = await admin
-      .from('list_period_history')
-      .select(
-        'completed_count, total_count, completed_all, period_end, lists(title)',
-      )
-      .eq('user_id', userId)
-      .eq('time_frame', 'weekly')
-      .eq('period_end', latestPeriod.period_end)
-
-    const recapRows: WeeklyRecapRow[] = ((historyRows ?? []) as HistoryRow[]).map(
-      (row) => {
-        const list = Array.isArray(row.lists) ? row.lists[0] : row.lists
-        return {
-          listTitle: list?.title ?? 'Weekly list',
-          completed_count: row.completed_count,
-          total_count: row.total_count,
-          completed_all: row.completed_all,
-        }
-      },
-    )
-
-    const recap = buildWeeklyRecapMessage(recapRows)
-    if (recap) message = recap
-  }
+  const message =
+    testType === 'daily_reminder'
+      ? await buildDailyTestMessage(admin, userId)
+      : await buildWeeklyTestMessage(admin, userId)
 
   const firstName =
     typeof profile?.first_name === 'string' ? profile.first_name : null

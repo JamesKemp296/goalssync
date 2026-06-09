@@ -183,7 +183,9 @@ export async function setDailyReminderEnabled(
   }
 }
 
-export async function sendTestPush(): Promise<{
+export type TestPushType = 'weekly_recap' | 'daily_reminder'
+
+export async function sendTestPush(type: TestPushType): Promise<{
   delivered: number
   title: string
   body: string
@@ -192,6 +194,7 @@ export async function sendTestPush(): Promise<{
 
   const { data, error } = await supabase.functions.invoke('send-test-push', {
     method: 'POST',
+    body: { type },
   })
 
   if (error) {
