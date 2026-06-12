@@ -74,6 +74,8 @@ export default function SettingsView({ session }: SettingsViewProps) {
   const [pushLoading, setPushLoading] = useState(true)
   const [pushToggling, setPushToggling] = useState(false)
   const [dailyReminderToggling, setDailyReminderToggling] = useState(false)
+  const [weeklyPushStatus, setWeeklyPushStatus] = useState('')
+  const [dailyPushStatus, setDailyPushStatus] = useState('')
   const [testWeeklyPushLoading, setTestWeeklyPushLoading] = useState(false)
   const [testDailyPushLoading, setTestDailyPushLoading] = useState(false)
   const displayName = [firstName.trim(), lastName.trim()]
@@ -99,17 +101,27 @@ export default function SettingsView({ session }: SettingsViewProps) {
     let cancelled = false
     void (async () => {
       setPushLoading(true)
-      const prefs = await fetchNotificationPrefs(session.user.id)
-      if (!cancelled) {
-        setPushEnabled(prefs.weeklyRecap)
-        setDailyReminderEnabled(prefs.dailyReminder)
-        setPushLoading(false)
+      try {
+        const prefs = await fetchNotificationPrefs(session.user.id)
+        if (!cancelled) {
+          setPushEnabled(prefs.weeklyRecap)
+          setDailyReminderEnabled(prefs.dailyReminder)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast('Could not load notification settings', {
+            subTitle: err instanceof Error ? err.message : 'Something went wrong.',
+            variant: 'error',
+          })
+        }
+      } finally {
+        if (!cancelled) setPushLoading(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [session.user.id])
+  }, [session.user.id, toast])
 
   const pushSupported = isPushSupported()
   const pushPermission = getPushPermission()
@@ -120,81 +132,93 @@ export default function SettingsView({ session }: SettingsViewProps) {
     !pushSupported ||
     !pushConfigured ||
     pushBlocked
-  const weeklyHelperText = !pushSupported
-    ? 'Not supported in this browser.'
-    : !pushConfigured
-      ? 'Push is not configured for this environment.'
-      : pushBlocked
-        ? 'Notifications are blocked in browser settings.'
-        : 'Monday 7am recap of your weekly lists.'
-  const dailyHelperText = !pushSupported
-    ? 'Not supported in this browser.'
-    : !pushConfigured
-      ? 'Push is not configured for this environment.'
-      : pushBlocked
-        ? 'Notifications are blocked in browser settings.'
-        : 'Nudge to finish open tasks on your daily lists.'
+  const weeklyHelperText = weeklyPushStatus
+    ? weeklyPushStatus
+    : !pushSupported
+      ? 'Not supported in this browser.'
+      : !pushConfigured
+        ? 'Push is not configured for this environment.'
+        : pushBlocked
+          ? 'Notifications are blocked in browser settings.'
+          : 'Monday 7am recap of your weekly lists.'
+  const dailyHelperText = dailyPushStatus
+    ? dailyPushStatus
+    : !pushSupported
+      ? 'Not supported in this browser.'
+      : !pushConfigured
+        ? 'Push is not configured for this environment.'
+        : pushBlocked
+          ? 'Notifications are blocked in browser settings.'
+          : 'Nudge to finish open tasks on your daily lists.'
 
   const handlePushToggle = (checked: boolean) => {
+    if (pushToggling) return
     void (async () => {
-      const previous = pushEnabled
-      setPushEnabled(checked)
       setPushToggling(true)
       try {
         if (checked) {
+          setWeeklyPushStatus('Allow notifications when prompted…')
           await requestPushPermission()
+          setWeeklyPushStatus('Saving subscription…')
           await updateWeeklyRecapEnabled(session.user.id, true)
+          setPushEnabled(true)
           toast('Weekly recap enabled', {
             subTitle: 'Every Monday at 7am.',
             variant: 'success',
           })
         } else {
+          setWeeklyPushStatus('Turning off…')
           await updateWeeklyRecapEnabled(session.user.id, false)
+          setPushEnabled(false)
           toast('Weekly recap disabled', {
             subTitle: 'Monday morning pushes are turned off.',
             variant: 'success',
           })
         }
       } catch (err) {
-        setPushEnabled(previous)
         toast('Could not update notifications', {
           subTitle: err instanceof Error ? err.message : 'Something went wrong.',
           variant: 'error',
         })
       } finally {
         setPushToggling(false)
+        setWeeklyPushStatus('')
       }
     })()
   }
 
   const handleDailyReminderToggle = (checked: boolean) => {
+    if (dailyReminderToggling) return
     void (async () => {
-      const previous = dailyReminderEnabled
-      setDailyReminderEnabled(checked)
       setDailyReminderToggling(true)
       try {
         if (checked) {
+          setDailyPushStatus('Allow notifications when prompted…')
           await requestPushPermission()
+          setDailyPushStatus('Saving subscription…')
           await updateDailyReminderEnabled(session.user.id, true)
+          setDailyReminderEnabled(true)
           toast('Daily reminder enabled', {
             subTitle: 'Every night at 10pm when tasks are left.',
             variant: 'success',
           })
         } else {
+          setDailyPushStatus('Turning off…')
           await updateDailyReminderEnabled(session.user.id, false)
+          setDailyReminderEnabled(false)
           toast('Daily reminder disabled', {
             subTitle: 'Evening nudges are turned off.',
             variant: 'success',
           })
         }
       } catch (err) {
-        setDailyReminderEnabled(previous)
         toast('Could not update notifications', {
           subTitle: err instanceof Error ? err.message : 'Something went wrong.',
           variant: 'error',
         })
       } finally {
         setDailyReminderToggling(false)
+        setDailyPushStatus('')
       }
     })()
   }
@@ -345,13 +369,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
             </Typography>
             <Paper>
               <List>
-                <ListItem
-                  sx={{ pr: 2, gap: 1 }}
-                  onClick={() => {
-                    if (pushUnavailable || pushToggling) return
-                    handlePushToggle(!pushEnabled)
-                  }}
-                >
+                <ListItem sx={{ pr: 2, gap: 1 }}>
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     <TbBell size={18} />
                   </ListItemIcon>
@@ -363,7 +381,6 @@ export default function SettingsView({ session }: SettingsViewProps) {
                     edge="end"
                     checked={pushEnabled}
                     disabled={pushUnavailable || pushToggling}
-                    onClick={(e) => e.stopPropagation()}
                     onChange={(_, checked) => handlePushToggle(checked)}
                     slotProps={{
                       input: { 'aria-label': 'Toggle weekly recap notifications' },
@@ -372,13 +389,7 @@ export default function SettingsView({ session }: SettingsViewProps) {
                   />
                 </ListItem>
                 <Divider component="li" sx={{ mx: 2 }} />
-                <ListItem
-                  sx={{ pr: 2, gap: 1 }}
-                  onClick={() => {
-                    if (pushUnavailable || dailyReminderToggling) return
-                    handleDailyReminderToggle(!dailyReminderEnabled)
-                  }}
-                >
+                <ListItem sx={{ pr: 2, gap: 1 }}>
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     <TbBell size={18} />
                   </ListItemIcon>
@@ -390,7 +401,6 @@ export default function SettingsView({ session }: SettingsViewProps) {
                     edge="end"
                     checked={dailyReminderEnabled}
                     disabled={pushUnavailable || dailyReminderToggling}
-                    onClick={(e) => e.stopPropagation()}
                     onChange={(_, checked) => handleDailyReminderToggle(checked)}
                     slotProps={{
                       input: { 'aria-label': 'Toggle daily reminder notifications' },

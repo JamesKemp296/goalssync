@@ -1,6 +1,13 @@
 import { supabase } from './supabase'
+import {
+  waitForServiceWorkerRegistration,
+  withTimeout,
+} from './serviceWorkerRegistration'
 
 const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim() ?? ''
+
+const PERMISSION_TIMEOUT_MS = 60_000
+const SUBSCRIBE_TIMEOUT_MS = 30_000
 
 export type NotificationPrefs = {
   weeklyRecap: boolean
@@ -21,7 +28,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function isPushSupported(): boolean {
   if (typeof window === 'undefined') return false
   if (!('serviceWorker' in navigator) || !('Notification' in window)) return false
-  // PushManager lives on ServiceWorkerRegistration in some Android PWAs.
   return (
     'PushManager' in window ||
     'pushManager' in ServiceWorkerRegistration.prototype
@@ -39,40 +45,48 @@ export function getPushPermission(): PushPermissionState {
   return Notification.permission
 }
 
-const SERVICE_WORKER_TIMEOUT_MS = 15_000
-
-async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
-  const existing = await navigator.serviceWorker.getRegistration()
-  if (existing?.active) return existing
-
-  const ready = navigator.serviceWorker.ready
-  const timeout = new Promise<never>((_, reject) => {
-    window.setTimeout(() => {
-      reject(
-        new Error(
-          'Service worker is not ready. Close the app completely and open it again, then retry.',
-        ),
-      )
-    }, SERVICE_WORKER_TIMEOUT_MS)
-  })
-
-  return Promise.race([ready, timeout])
-}
-
-/** Call synchronously from a click/tap handler before other async work (required on Android). */
+/** Call as the first await from a click/tap handler (required on Android). */
 export async function requestPushPermission(): Promise<NotificationPermission> {
   if (!isPushSupported()) {
     throw new Error('Push notifications are not supported')
   }
   if (Notification.permission === 'granted') return 'granted'
   if (Notification.permission === 'denied') {
-    throw new Error('Notifications are blocked in browser settings')
+    throw new Error(
+      'Notifications are blocked. Enable them for this app in Android Settings.',
+    )
   }
-  const permission = await Notification.requestPermission()
+
+  const permission = await withTimeout(
+    Notification.requestPermission(),
+    PERMISSION_TIMEOUT_MS,
+    'Permission request timed out. Try again and allow notifications when prompted.',
+  )
+
+  if (permission === 'denied') {
+    throw new Error(
+      'Notifications were blocked. Enable them for this app in Android Settings.',
+    )
+  }
   if (permission !== 'granted') {
     throw new Error('Notification permission was not granted')
   }
   return permission
+}
+
+function formatSubscribeError(error: unknown): string {
+  if (!(error instanceof Error)) return 'Push subscription failed'
+  const name = error.name
+  if (name === 'NotAllowedError') {
+    return 'Push subscription was blocked. Check notification permissions.'
+  }
+  if (name === 'AbortError') {
+    return 'Push subscription was cancelled. Try again.'
+  }
+  if (name === 'InvalidStateError') {
+    return 'Service worker is not active. Close the app from recents and reopen it.'
+  }
+  return error.message || 'Push subscription failed'
 }
 
 export async function ensurePushSubscription(userId: string): Promise<void> {
@@ -81,18 +95,30 @@ export async function ensurePushSubscription(userId: string): Promise<void> {
   if (!isVapidConfigured()) {
     throw new Error('Push notifications are not configured on this server')
   }
-
   if (Notification.permission !== 'granted') {
     throw new Error('Notification permission was not granted')
   }
 
-  const registration = await getServiceWorkerRegistration()
+  const registration = await withTimeout(
+    waitForServiceWorkerRegistration(),
+    SUBSCRIBE_TIMEOUT_MS,
+    'Service worker is not ready. Close the app from recents and reopen it.',
+  )
+
   let subscription = await registration.pushManager.getSubscription()
   if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-    })
+    try {
+      subscription = await withTimeout(
+        registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+        }),
+        SUBSCRIBE_TIMEOUT_MS,
+        'Push subscription timed out. Check your connection and try again.',
+      )
+    } catch (error) {
+      throw new Error(formatSubscribeError(error))
+    }
   }
 
   const json = subscription.toJSON()
@@ -117,16 +143,20 @@ async function releasePushSubscription(userId: string): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured')
 
   if (isPushSupported()) {
-    const registration = await getServiceWorkerRegistration()
-    const subscription = await registration.pushManager.getSubscription()
-    if (subscription) {
-      await subscription.unsubscribe()
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('user_id', userId)
-        .eq('endpoint', subscription.endpoint)
-    } else {
+    try {
+      const registration = await waitForServiceWorkerRegistration()
+      const subscription = await registration.pushManager.getSubscription()
+      if (subscription) {
+        await subscription.unsubscribe()
+        await supabase
+          .from('push_subscriptions')
+          .delete()
+          .eq('user_id', userId)
+          .eq('endpoint', subscription.endpoint)
+      } else {
+        await supabase.from('push_subscriptions').delete().eq('user_id', userId)
+      }
+    } catch {
       await supabase.from('push_subscriptions').delete().eq('user_id', userId)
     }
   } else {
@@ -145,18 +175,17 @@ export async function setWeeklyRecapEnabled(
 ): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured')
 
+  if (enabled) {
+    await ensurePushSubscription(userId)
+  }
+
   const { error: profileError } = await supabase
     .from('profiles')
     .update({ push_enabled: enabled })
     .eq('id', userId)
   if (profileError) throw new Error(profileError.message)
 
-  if (enabled) {
-    await ensurePushSubscription(userId)
-    return
-  }
-
-  if (!(await hasAnyNotificationEnabled(userId))) {
+  if (!enabled && !(await hasAnyNotificationEnabled(userId))) {
     await releasePushSubscription(userId)
   }
 }
@@ -167,18 +196,17 @@ export async function setDailyReminderEnabled(
 ): Promise<void> {
   if (!supabase) throw new Error('Supabase is not configured')
 
+  if (enabled) {
+    await ensurePushSubscription(userId)
+  }
+
   const { error: profileError } = await supabase
     .from('profiles')
     .update({ daily_reminder_enabled: enabled })
     .eq('id', userId)
   if (profileError) throw new Error(profileError.message)
 
-  if (enabled) {
-    await ensurePushSubscription(userId)
-    return
-  }
-
-  if (!(await hasAnyNotificationEnabled(userId))) {
+  if (!enabled && !(await hasAnyNotificationEnabled(userId))) {
     await releasePushSubscription(userId)
   }
 }
@@ -235,11 +263,12 @@ export async function fetchNotificationPrefs(
   userId: string,
 ): Promise<NotificationPrefs> {
   if (!supabase) return { weeklyRecap: false, dailyReminder: false }
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('push_enabled, daily_reminder_enabled')
     .eq('id', userId)
     .maybeSingle()
+  if (error) throw new Error(error.message)
   const row = data as {
     push_enabled?: boolean
     daily_reminder_enabled?: boolean
