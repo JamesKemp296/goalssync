@@ -16,6 +16,8 @@ type HeatmapCardProps = {
   /** Map of YYYY-MM-DD (local date) → total completions on that day. */
   completionsByDay: Record<string, number>
   loading?: boolean
+  /** Called when the user taps/clicks a day cell. Receives the YYYY-MM-DD key. */
+  onDayClick?: (dateKey: string) => void
 }
 
 const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -190,12 +192,14 @@ function HeatmapCell({
   selected,
   onSelect,
   useTapTooltip,
+  onDayClick,
 }: {
   cell: Extract<CalCell, { type: 'day' }>
   max: number
   selected: boolean
   onSelect: (key: string | null) => void
   useTapTooltip: boolean
+  onDayClick?: (key: string) => void
 }) {
   const theme = useTheme()
   const { date, key, value, isFuture, isMonthStart } = cell
@@ -203,25 +207,34 @@ function HeatmapCell({
   const fillAlpha = heatmapFillAlpha(intensity)
   const tooltipTitle = completionTooltipTitle(date, value)
 
+  // When onDayClick is provided: clicks open the drawer (tap tooltip disabled).
+  // When not provided: fall back to original tap-tooltip behaviour on touch devices.
+  const handleClick = () => {
+    if (isFuture) return
+    if (onDayClick) {
+      onDayClick(key)
+    } else if (useTapTooltip) {
+      onSelect(selected ? null : key)
+    }
+  }
+
   return (
     <Tooltip
       title={tooltipTitle}
       placement="top"
       arrow
-      open={useTapTooltip ? selected : undefined}
-      disableHoverListener={useTapTooltip}
+      open={useTapTooltip && !onDayClick ? selected : undefined}
+      disableHoverListener={useTapTooltip && !onDayClick}
       disableFocusListener
       enterTouchDelay={0}
-      leaveTouchDelay={useTapTooltip ? 0 : 1500}
+      leaveTouchDelay={useTapTooltip && !onDayClick ? 0 : 1500}
     >
       <Box
         component="button"
         type="button"
         aria-label={tooltipTitle}
-        aria-pressed={useTapTooltip ? selected : undefined}
-        onClick={() => {
-          if (useTapTooltip) onSelect(selected ? null : key)
-        }}
+        aria-pressed={useTapTooltip && !onDayClick ? selected : undefined}
+        onClick={handleClick}
         sx={{
           aspectRatio: '1',
           minWidth: 0,
@@ -346,9 +359,11 @@ function RollingGridSkeleton({ weeks }: { weeks: HeatmapWeek[] }) {
 function RollingGrid({
   weeks,
   max,
+  onDayClick,
 }: {
   weeks: HeatmapWeek[]
   max: number
+  onDayClick?: (dateKey: string) => void
 }) {
   const useTapTooltip = useMediaQuery('(hover: none), (pointer: coarse)')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -419,6 +434,7 @@ function RollingGrid({
                     selected={selectedKey === cell.key}
                     onSelect={setSelectedKey}
                     useTapTooltip={useTapTooltip}
+                    onDayClick={onDayClick}
                   />
                 )
               })}
@@ -429,7 +445,8 @@ function RollingGrid({
     </Stack>
   )
 
-  if (!useTapTooltip) return grid
+  // When onDayClick is provided the drawer handles focus; no tap-tooltip to dismiss.
+  if (!useTapTooltip || onDayClick) return grid
 
   return (
     <ClickAwayListener onClickAway={() => setSelectedKey(null)}>
@@ -441,6 +458,7 @@ function RollingGrid({
 export default function HeatmapCard({
   completionsByDay,
   loading = false,
+  onDayClick,
 }: HeatmapCardProps) {
   const skeletonWeeks = useMemo(() => buildRollingWeeks({}).weeks, [])
 
@@ -488,7 +506,7 @@ export default function HeatmapCard({
         {loading ? (
           <RollingGridSkeleton weeks={skeletonWeeks} />
         ) : (
-          <RollingGrid weeks={weeks} max={max} />
+          <RollingGrid weeks={weeks} max={max} onDayClick={onDayClick} />
         )}
 
         {loading ? (

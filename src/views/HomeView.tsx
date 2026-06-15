@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
   Avatar,
@@ -21,6 +21,7 @@ import BadgesRail from '../components/BadgesRail'
 import HeatmapCard from '../components/HeatmapCard'
 import BestWorstInsights from '../components/BestWorstInsights'
 import RollupStats from '../components/RollupStats'
+import DayHistoryDrawer from '../components/DayHistoryDrawer'
 import { useBadgeUnlock } from '../components/BadgeUnlockProvider'
 import NutmegCatIcon from '../components/NutmegCatIcon'
 import { isLindseyUser, rollShowLindseyUX } from '../lindseyUx'
@@ -29,6 +30,10 @@ type ListRow = Database['public']['Tables']['lists']['Row']
 type TodoRow = Pick<
   Database['public']['Tables']['todos']['Row'],
   'list_id' | 'is_complete' | 'task' | 'id' | 'completed_at'
+>
+type LiveTodoRow = Pick<
+  Database['public']['Tables']['todos']['Row'],
+  'id' | 'list_id' | 'task' | 'is_complete'
 >
 type ListPeriodHistoryRow =
   Database['public']['Tables']['list_period_history']['Row']
@@ -59,6 +64,7 @@ export default function HomeView() {
   const [itemHistory, setItemHistory] = useState<TodoPeriodHistoryRow[]>([])
   const [badges, setBadges] = useState<BadgeRow[]>([])
   const [showLindseyUX, setShowLindseyUX] = useState(false)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -183,6 +189,82 @@ export default function HomeView() {
 
   const liveCompletedCount = useMemo(
     () => todos.filter((t) => t.is_complete).length,
+    [todos],
+  )
+
+  const handleToggleHistoric = useCallback(
+    async (todoHistId: number, listHistId: number) => {
+      if (!supabase) return
+      const currentItem = itemHistory.find((item) => item.id === todoHistId)
+      if (!currentItem) return
+
+      const newWasCompleted = !currentItem.was_completed
+
+      // Optimistic update of item history
+      const newItemHistory = itemHistory.map((item) =>
+        item.id === todoHistId
+          ? { ...item, was_completed: newWasCompleted }
+          : item,
+      )
+      setItemHistory(newItemHistory)
+
+      // Recompute and update the period's completed_count so the heatmap stays accurate
+      const newCompletedCount = newItemHistory.filter(
+        (item) =>
+          item.list_period_history_id === listHistId && item.was_completed,
+      ).length
+      setHistory((prev) =>
+        prev.map((h) =>
+          h.id === listHistId
+            ? { ...h, completed_count: newCompletedCount }
+            : h,
+        ),
+      )
+
+      await supabase
+        .from('todo_period_history')
+        .update({ was_completed: newWasCompleted })
+        .eq('id', todoHistId)
+      await supabase
+        .from('list_period_history')
+        .update({ completed_count: newCompletedCount })
+        .eq('id', listHistId)
+    },
+    [itemHistory],
+  )
+
+  const handleToggleLive = useCallback(
+    async (todoId: number) => {
+      if (!supabase) return
+      const todo = todos.find((t) => t.id === todoId)
+      if (!todo) return
+
+      const newIsComplete = !todo.is_complete
+      const newCompletedAt = newIsComplete ? new Date().toISOString() : null
+
+      // Optimistic update
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todoId
+            ? { ...t, is_complete: newIsComplete, completed_at: newCompletedAt }
+            : t,
+        ),
+      )
+
+      await supabase
+        .from('todos')
+        .update({
+          is_complete: newIsComplete,
+          progress_count: newIsComplete ? 1 : 0,
+          completed_at: newCompletedAt,
+        })
+        .eq('id', todoId)
+    },
+    [todos],
+  )
+
+  const liveTodosForDrawer = useMemo<LiveTodoRow[]>(
+    () => todos.map(({ id, list_id, task, is_complete }) => ({ id, list_id, task, is_complete })),
     [todos],
   )
 
@@ -317,6 +399,7 @@ export default function HomeView() {
           <HeatmapCard
             completionsByDay={completionsByDay}
             loading={loading}
+            onDayClick={setSelectedDay}
           />
 
           <BadgesRail
@@ -357,6 +440,18 @@ export default function HomeView() {
           ) : null}
         </>
       </Stack>
+
+      <DayHistoryDrawer
+        open={selectedDay !== null}
+        dateKey={selectedDay}
+        onClose={() => setSelectedDay(null)}
+        history={history}
+        itemHistory={itemHistory}
+        lists={lists}
+        liveTodos={liveTodosForDrawer}
+        onToggleHistoric={handleToggleHistoric}
+        onToggleLive={handleToggleLive}
+      />
     </Container>
   )
 }
