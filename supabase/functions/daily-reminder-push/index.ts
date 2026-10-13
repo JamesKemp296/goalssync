@@ -10,6 +10,7 @@ import {
   type DailyReminderRow,
 } from '../_shared/dailyReminderMessage.ts'
 import { pushIconUrl } from '../_shared/weeklyRecapMessage.ts'
+import { sendPushToSubscriptions } from '../_shared/pushSender.ts'
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -156,7 +157,7 @@ Deno.serve(async (req) => {
 
     const { data: subs } = await admin
       .from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth')
+      .select('id, endpoint, p256dh, auth, user_agent')
       .eq('user_id', profile.id)
 
     if (!subs?.length) {
@@ -190,32 +191,10 @@ Deno.serve(async (req) => {
       url: '/home',
     })
 
-    let delivered = false
+    const { delivered, results } = await sendPushToSubscriptions(admin, subs, payload)
+    errors += results.filter((r) => !r.success).length
 
-    for (const sub of subs) {
-      try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          payload,
-        )
-        delivered = true
-      } catch (err: unknown) {
-        const statusCode =
-          err && typeof err === 'object' && 'statusCode' in err
-            ? Number((err as { statusCode: number }).statusCode)
-            : 0
-        if (statusCode === 404 || statusCode === 410) {
-          await admin.from('push_subscriptions').delete().eq('id', sub.id)
-        } else {
-          errors += 1
-        }
-      }
-    }
-
-    if (!delivered) {
+    if (delivered === 0) {
       skipped += 1
       continue
     }

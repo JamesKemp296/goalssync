@@ -213,10 +213,20 @@ export async function setDailyReminderEnabled(
 
 export type TestPushType = 'weekly_recap' | 'daily_reminder'
 
+export type PushSendResult = {
+  id: string
+  device: string
+  success: boolean
+  statusCode: number | null
+  error: string | null
+}
+
 export async function sendTestPush(type: TestPushType): Promise<{
   delivered: number
   title: string
   body: string
+  /** Per-device outcome. Includes devices that failed even when others succeeded. */
+  results: PushSendResult[]
 }> {
   if (!supabase) throw new Error('Supabase is not configured')
 
@@ -245,6 +255,7 @@ export async function sendTestPush(type: TestPushType): Promise<{
     title?: string
     body?: string
     error?: string
+    results?: PushSendResult[]
   } | null
 
   if (result?.error) throw new Error(result.error)
@@ -256,6 +267,7 @@ export async function sendTestPush(type: TestPushType): Promise<{
     delivered: result.delivered,
     title: result.title ?? 'Test push',
     body: result.body ?? '',
+    results: result.results ?? [],
   }
 }
 

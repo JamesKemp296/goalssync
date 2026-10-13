@@ -241,6 +241,22 @@ curl -X POST \
 
 Users enable **Weekly recap (Monday 7am)** and/or **Daily reminder (10pm)** independently in Settings. Both share one device push subscription. iOS requires installing the PWA to the home screen before push works.
 
+### Troubleshooting Android
+
+Because notifications work through Chrome's Web Push implementation (not a native app), "notifications don't work on Android" is almost always one of these, roughly in order of likelihood:
+
+1. **Chrome is battery-optimized by the OS.** On Samsung/Xiaomi/Huawei/OnePlus especially, aggressive battery managers kill Chrome's background process, which prevents it from waking up to handle the push and run the service worker. Fix on-device: Android Settings → Apps → Chrome → Battery → set to "Unrestricted" (wording varies by OEM), and disable any "sleeping apps" / "deep sleep" list entry for Chrome.
+2. **A different registered device is masking the failure.** If the same account has both an iOS and an Android subscription, the "test push" used to report success as long as *any* device received it — silently hiding an Android-only failure. This is now fixed: the developer test buttons in Settings show a separate error toast for any device that fails, naming the device and the underlying error (e.g. an HTTP status from the push service). Use this to see the *actual* Android error instead of guessing.
+3. **Stale service worker.** Android users rarely fully quit Chrome, so a previously-installed service worker can keep running for days after a fix ships. The service worker now calls `skipWaiting()` / `clients.claim()` on activate so the newest code takes over on the very next push instead of waiting for every tab to close. If you're testing a fix, still fully close the app from Android recents once to be safe.
+4. **Permission granted at the site level, blocked at the OS level.** `Notification.permission === 'granted'` only reflects the site's permission; it says nothing about whether Android/Chrome notifications are globally muted (Do Not Disturb, or Chrome's OS-level notification toggle being off). Check Android Settings → Apps → Chrome → Notifications is on, in addition to the in-site prompt.
+5. **Persistent per-subscription errors.** `push_subscriptions` now has `last_error` / `last_error_at` / `last_success_at` columns, updated on every send (cron or manual test). Query this table directly to see exactly what's failing for a given endpoint without needing to trigger a manual test:
+
+   ```sql
+   select id, user_agent, last_error, last_error_at, last_success_at
+   from public.push_subscriptions
+   where user_id = '<user id>';
+   ```
+
 ## Routes
 
 - `/login` — sign in / sign up

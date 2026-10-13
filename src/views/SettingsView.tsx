@@ -229,10 +229,20 @@ export default function SettingsView({ session }: SettingsViewProps) {
     setLoading(true)
     try {
       const result = await sendTestPush(type)
+      const failures = result.results.filter((r) => !r.success)
       toast(result.title, {
         subTitle: result.body,
         variant: 'success',
       })
+      // A test push can "succeed" overall (e.g. delivered to an iPhone) while
+      // silently failing on another registered device (e.g. Android) — call
+      // that out explicitly so it isn't mistaken for working everywhere.
+      for (const failure of failures) {
+        toast(`Push failed on ${failure.device}`, {
+          subTitle: failure.error ?? 'Unknown error',
+          variant: 'error',
+        })
+      }
     } catch (err) {
       toast('Test push failed', {
         subTitle: err instanceof Error ? err.message : 'Something went wrong.',

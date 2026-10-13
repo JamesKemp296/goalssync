@@ -13,6 +13,7 @@ import {
   pushIconUrl,
   type WeeklyRecapRow,
 } from '../_shared/weeklyRecapMessage.ts'
+import { sendPushToSubscriptions } from '../_shared/pushSender.ts'
 
 const DEVELOPER_EMAIL = 'jamesdanielkemp@gmail.com'
 
@@ -198,7 +199,7 @@ Deno.serve(async (req) => {
 
   const { data: subs, error: subsErr } = await admin
     .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth')
+    .select('id, endpoint, p256dh, auth, user_agent')
     .eq('user_id', userId)
 
   if (subsErr) return json(500, { error: subsErr.message })
@@ -226,39 +227,16 @@ Deno.serve(async (req) => {
 
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
 
-  let delivered = 0
-  let errors = 0
-
-  for (const sub of subs) {
-    try {
-      await webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
-        payload,
-      )
-      delivered += 1
-    } catch (err: unknown) {
-      const statusCode =
-        err && typeof err === 'object' && 'statusCode' in err
-          ? Number((err as { statusCode: number }).statusCode)
-          : 0
-      if (statusCode === 404 || statusCode === 410) {
-        await admin.from('push_subscriptions').delete().eq('id', sub.id)
-      } else {
-        errors += 1
-      }
-    }
-  }
+  const { delivered, results } = await sendPushToSubscriptions(admin, subs, payload)
 
   if (delivered === 0) {
-    return json(500, { error: 'Push delivery failed', errors })
+    const detail = results.map((r) => `${r.device}: ${r.error}`).join('; ')
+    return json(500, { error: `Push delivery failed. ${detail}`, results })
   }
 
   return json(200, {
     delivered,
-    errors,
+    results,
     title: message.title,
     body: message.body,
   })
