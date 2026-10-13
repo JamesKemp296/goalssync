@@ -21,34 +21,31 @@ export function buildWeeklyRecapMessage(
 
   const doneTasks = rows.reduce((acc, r) => acc + r.completed_count, 0)
   const perfectLists = rows.filter((r) => r.completed_all).length
-  const listWord = rows.length === 1 ? 'list' : 'lists'
 
   if (rows.length === 1) {
     const row = rows[0]!
-    const pct = Math.round((row.completed_count / row.total_count) * 100)
     if (row.completed_all) {
       return {
-        title: 'Perfect week!',
-        body: `${row.listTitle}: ${row.completed_count}/${row.total_count} — perfect week!`,
+        title: 'You crushed last week',
+        body: `You finished all ${row.total_count} tasks on ${row.listTitle}. Nice work!`,
       }
     }
     return {
-      title: 'Weekly recap',
-      body: `${row.listTitle}: ${row.completed_count}/${row.total_count} last week (${pct}%).`,
+      title: 'Your week in review',
+      body: `You finished ${row.completed_count} of ${row.total_count} tasks on ${row.listTitle} last week.`,
     }
   }
 
   if (perfectLists === rows.length) {
     return {
-      title: 'Perfect week!',
-      body: `You finished all ${rows.length} weekly ${listWord} (${doneTasks}/${totalTasks} tasks).`,
+      title: 'You crushed last week',
+      body: `You finished every task on all ${rows.length} of your weekly lists. Nice work!`,
     }
   }
 
-  const pct = Math.round((doneTasks / totalTasks) * 100)
   return {
-    title: 'Weekly recap',
-    body: `Last week: ${doneTasks} of ${totalTasks} tasks across ${rows.length} weekly ${listWord} (${pct}%).`,
+    title: 'Your week in review',
+    body: `You finished ${doneTasks} of ${totalTasks} tasks across your ${rows.length} weekly lists last week.`,
   }
 }
 

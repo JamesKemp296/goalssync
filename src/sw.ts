@@ -35,8 +35,6 @@ self.addEventListener('push', (event) => {
           body: payload.body ?? '',
           icon: payload.icon ?? '/icons/ace.png',
           badge: payload.icon ?? '/icons/ace.png',
-          // Android ignores `icon`/`badge` fetch failures silently but ignores
-          // the whole notification if `vibrate` isn't a plain number array.
           vibrate: [100, 50, 100],
           data: { url: payload.url ?? '/home' },
         }
@@ -47,7 +45,7 @@ self.addEventListener('push', (event) => {
         // the developer can see.
         console.error('[sw] push handling failed', err)
         await self.registration.showNotification('Goals Sync', {
-          body: 'You have a new notification.',
+          body: 'Open the app to see what’s new.',
         })
       }
     })(),

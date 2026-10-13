@@ -25,19 +25,20 @@ export function buildDailyReminderMessage(
     0,
   )
 
+  const title = remainingTasks === 1 ? 'One thing left today' : `${remainingTasks} things left today`
+
   if (incompleteRows.length === 1) {
     const row = incompleteRows[0]!
     const left = row.total_count - row.completed_count
     const taskWord = left === 1 ? 'task' : 'tasks'
     return {
-      title: 'Daily reminder',
-      body: `${row.listTitle}: ${left} ${taskWord} left tonight.`,
+      title,
+      body: `${row.listTitle} still has ${left} open ${taskWord}. There’s still time tonight!`,
     }
   }
 
-  const listWord = incompleteRows.length === 1 ? 'list' : 'lists'
   return {
-    title: 'Daily reminder',
-    body: `${remainingTasks} tasks left across ${incompleteRows.length} daily ${listWord} tonight.`,
+    title,
+    body: `You’ve got open tasks on ${incompleteRows.length} of your daily lists. There’s still time tonight!`,
   }
 }

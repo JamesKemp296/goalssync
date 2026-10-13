@@ -6,7 +6,8 @@ import {
 
 const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim() ?? ''
 
-const PERMISSION_TIMEOUT_MS = 60_000
+const PERMISSION_SLOW_MS = 5_000
+const PERMISSION_GIVE_UP_MS = 20_000
 const SUBSCRIBE_TIMEOUT_MS = 30_000
 
 export type NotificationPrefs = {
@@ -45,64 +46,158 @@ export function getPushPermission(): PushPermissionState {
   return Notification.permission
 }
 
-/** Call as the first await from a click/tap handler (required on Android). */
-export async function requestPushPermission(): Promise<NotificationPermission> {
-  if (!isPushSupported()) {
-    throw new Error('Push notifications are not supported')
-  }
-  if (Notification.permission === 'granted') return 'granted'
-  if (Notification.permission === 'denied') {
-    throw new Error(
-      'Notifications are blocked. Enable them for this app in Android Settings.',
-    )
-  }
+export type DevicePlatform = 'android' | 'ios' | 'other'
 
-  const permission = await withTimeout(
-    Notification.requestPermission(),
-    PERMISSION_TIMEOUT_MS,
-    'Permission request timed out. Try again and allow notifications when prompted.',
+export function getDevicePlatform(): DevicePlatform {
+  if (typeof navigator === 'undefined') return 'other'
+  const ua = navigator.userAgent
+  if (/android/i.test(ua)) return 'android'
+  // iPadOS reports itself as a Mac but has touch support.
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) {
+    return 'ios'
+  }
+  return 'other'
+}
+
+export function isInstalledApp(): boolean {
+  if (typeof window === 'undefined') return false
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
   )
+}
 
-  if (permission === 'denied') {
-    throw new Error(
-      'Notifications were blocked. Enable them for this app in Android Settings.',
+/** Where to go to turn notifications back on, in plain words for this device. */
+export function notificationSettingsHint(): string {
+  const platform = getDevicePlatform()
+  if (platform === 'android') {
+    return isInstalledApp()
+      ? 'Open your phone’s Settings → Apps → Goals Sync → Notifications and turn them on.'
+      : 'In Chrome, tap ⋮ → Settings → Site settings → Notifications and allow this site.'
+  }
+  if (platform === 'ios') {
+    return 'Open your iPhone’s Settings → Notifications → Goals Sync and turn on Allow Notifications.'
+  }
+  return 'Allow notifications for this site in your browser settings.'
+}
+
+export type PushPermissionErrorReason = 'unsupported' | 'blocked' | 'no-answer'
+
+export class PushPermissionError extends Error {
+  readonly reason: PushPermissionErrorReason
+
+  constructor(reason: PushPermissionErrorReason, message: string) {
+    super(message)
+    this.name = 'PushPermissionError'
+    this.reason = reason
+  }
+}
+
+export function unsupportedMessage(): string {
+  if (getDevicePlatform() === 'ios' && !isInstalledApp()) {
+    return 'On iPhone, add Goals Sync to your Home Screen first, then turn notifications on from there.'
+  }
+  return 'This browser can’t show notifications.'
+}
+
+/**
+ * Chrome on Android sometimes never shows the permission popup (its "quieter
+ * notifications" mode, or inside an installed app) and leaves
+ * Notification.requestPermission() pending forever. Polling
+ * Notification.permission covers the user allowing via the quiet UI or
+ * system settings instead.
+ */
+function waitForPermissionAnswer(
+  onSlow: (() => void) | undefined,
+): Promise<NotificationPermission | 'no-answer'> {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (value: NotificationPermission | 'no-answer') => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(slowId)
+      window.clearTimeout(giveUpId)
+      window.clearInterval(pollId)
+      resolve(value)
+    }
+
+    const slowId = window.setTimeout(() => onSlow?.(), PERMISSION_SLOW_MS)
+    const giveUpId = window.setTimeout(() => finish('no-answer'), PERMISSION_GIVE_UP_MS)
+    const pollId = window.setInterval(() => {
+      if (Notification.permission !== 'default') finish(Notification.permission)
+    }, 500)
+
+    try {
+      const request = Notification.requestPermission()
+      // Very old implementations return undefined and only use a callback.
+      if (request && typeof request.then === 'function') {
+        void request.then(finish, () => finish(Notification.permission))
+      }
+    } catch {
+      finish(Notification.permission)
+    }
+  })
+}
+
+/** Call from a click/tap handler, before any other awaits. */
+export async function requestPushPermission(options?: {
+  onSlow?: () => void
+}): Promise<void> {
+  if (!isPushSupported()) {
+    throw new PushPermissionError('unsupported', unsupportedMessage())
+  }
+  if (Notification.permission === 'granted') return
+  if (Notification.permission === 'denied') {
+    throw new PushPermissionError(
+      'blocked',
+      `Notifications are turned off for Goals Sync. ${notificationSettingsHint()}`,
     )
   }
-  if (permission !== 'granted') {
-    throw new Error('Notification permission was not granted')
+
+  const answer = await waitForPermissionAnswer(options?.onSlow)
+
+  if (answer === 'granted') return
+  if (answer === 'denied') {
+    throw new PushPermissionError(
+      'blocked',
+      `Notifications are turned off for Goals Sync. ${notificationSettingsHint()}`,
+    )
   }
-  return permission
+  throw new PushPermissionError(
+    'no-answer',
+    `Your phone didn’t show the permission popup. ${notificationSettingsHint()} We’ll finish setting this up when you come back.`,
+  )
 }
 
 function formatSubscribeError(error: unknown): string {
-  if (!(error instanceof Error)) return 'Push subscription failed'
+  if (!(error instanceof Error)) return 'Something went wrong. Please try again.'
   const name = error.name
   if (name === 'NotAllowedError') {
-    return 'Push subscription was blocked. Check notification permissions.'
+    return `Your phone blocked notifications. ${notificationSettingsHint()}`
   }
   if (name === 'AbortError') {
-    return 'Push subscription was cancelled. Try again.'
+    return 'That didn’t go through. Please try again.'
   }
   if (name === 'InvalidStateError') {
-    return 'Service worker is not active. Close the app from recents and reopen it.'
+    return 'The app is still getting ready. Close it fully, open it again, and try once more.'
   }
-  return error.message || 'Push subscription failed'
+  return error.message || 'Something went wrong. Please try again.'
 }
 
 export async function ensurePushSubscription(userId: string): Promise<void> {
-  if (!supabase) throw new Error('Supabase is not configured')
-  if (!isPushSupported()) throw new Error('Push notifications are not supported')
+  if (!supabase) throw new Error('Notifications aren’t available right now.')
+  if (!isPushSupported()) throw new Error(unsupportedMessage())
   if (!isVapidConfigured()) {
-    throw new Error('Push notifications are not configured on this server')
+    throw new Error('Notifications aren’t available right now.')
   }
   if (Notification.permission !== 'granted') {
-    throw new Error('Notification permission was not granted')
+    throw new Error(`Notifications aren’t allowed yet. ${notificationSettingsHint()}`)
   }
 
   const registration = await withTimeout(
     waitForServiceWorkerRegistration(),
     SUBSCRIBE_TIMEOUT_MS,
-    'Service worker is not ready. Close the app from recents and reopen it.',
+    'The app is still getting ready. Close it fully, open it again, and try once more.',
   )
 
   let subscription = await registration.pushManager.getSubscription()
@@ -114,7 +209,7 @@ export async function ensurePushSubscription(userId: string): Promise<void> {
           applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
         }),
         SUBSCRIBE_TIMEOUT_MS,
-        'Push subscription timed out. Check your connection and try again.',
+        'That took too long. Check your connection and try again.',
       )
     } catch (error) {
       throw new Error(formatSubscribeError(error))
@@ -123,7 +218,7 @@ export async function ensurePushSubscription(userId: string): Promise<void> {
 
   const json = subscription.toJSON()
   if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-    throw new Error('Invalid push subscription')
+    throw new Error('Something went wrong setting up notifications. Please try again.')
   }
 
   const { error: subError } = await supabase.from('push_subscriptions').upsert(

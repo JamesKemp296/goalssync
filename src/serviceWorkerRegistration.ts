@@ -11,7 +11,7 @@ export function initServiceWorkerRegistration(): Promise<ServiceWorkerRegistrati
     const timeoutId = window.setTimeout(() => {
       reject(
         new Error(
-          'Service worker did not register in time. Close the app from recents and reopen it.',
+          'The app is still getting ready. Close it fully, open it again, and try once more.',
         ),
       )
     }, SERVICE_WORKER_TIMEOUT_MS)
@@ -26,7 +26,7 @@ export function initServiceWorkerRegistration(): Promise<ServiceWorkerRegistrati
       reject(
         error instanceof Error
           ? error
-          : new Error('Service worker registration failed'),
+          : new Error('Something went wrong loading the app. Close it, open it again, and try once more.'),
       )
     }
 
@@ -34,7 +34,7 @@ export function initServiceWorkerRegistration(): Promise<ServiceWorkerRegistrati
       immediate: true,
       onRegistered(registration) {
         if (!registration) {
-          fail(new Error('Service worker registration returned no registration'))
+          fail(new Error('Something went wrong loading the app. Close it, open it again, and try once more.'))
           return
         }
         if (registration.active) {
